@@ -114,7 +114,8 @@
         "Returns time-series of pitch values",
         "Integration test with sample audio"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-01T16:48:00.000Z"
     },
     {
       "id": "T2-05",
