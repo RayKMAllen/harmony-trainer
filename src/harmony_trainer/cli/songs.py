@@ -5,6 +5,7 @@ from uuid import UUID
 import typer
 from rich.console import Console
 from rich.table import Table
+from tinytag import TinyTag
 
 from harmony_trainer.models import Song
 from harmony_trainer.registry import SongRegistry
@@ -17,10 +18,26 @@ registry = SongRegistry()
 @app.command()
 def add(
     path: Path = typer.Argument(..., help="Path to audio file", exists=True),  # noqa: B008
-    title: str = typer.Option(..., "--title", "-t", help="Song title"),
-    artist: Optional[str] = typer.Option(None, "--artist", "-a", help="Artist name"),  # noqa: UP007
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="Song title"),  # noqa: B008, UP045, UP007
+    artist: Optional[str] = typer.Option(None, "--artist", "-a", help="Artist name"),  # noqa: B008, UP045, UP007
 ) -> None:
     """Add a new song to the registry."""
+    # If title/artist not provided, try to extract from metadata
+    if not title or not artist:
+        try:
+            tag = TinyTag.get(path)
+            if not title and tag.title:
+                title = tag.title
+            if not artist and tag.artist:
+                artist = tag.artist
+        except Exception:
+            # Metadata extraction failed, proceed with what we have
+            pass
+
+    # Fallback to filename if title is still missing
+    if not title:
+        title = path.stem
+
     song = Song(
         title=title,
         artist=artist,
