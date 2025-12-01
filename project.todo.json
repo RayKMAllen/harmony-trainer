@@ -65,7 +65,8 @@
         "data/stems/, data/analysis/, data/practice/ created",
         "Per-song subdirectories created on add"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-01T15:27:00.000Z"
     },
     {
       "id": "T2-01",

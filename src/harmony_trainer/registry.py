@@ -18,8 +18,13 @@ class SongRegistry:
         self.model = self._load()
 
     def _ensure_data_dir(self) -> None:
-        if not self.data_path.parent.exists():
-            self.data_path.parent.mkdir(parents=True, exist_ok=True)
+        root = self.data_path.parent
+        if not root.exists():
+            root.mkdir(parents=True, exist_ok=True)
+
+        # Create base directories
+        for subdir in ["stems", "analysis", "practice"]:
+            (root / subdir).mkdir(exist_ok=True)
 
     def _load(self) -> SongRegistryModel:
         if not self.data_path.exists():
@@ -39,6 +44,14 @@ class SongRegistry:
     def add_song(self, song: Song) -> None:
         self.model.songs.append(song)
         self.save()
+
+        # Create per-song directories
+        root = self.data_path.parent
+        song_id = str(song.id)
+
+        (root / "stems" / song_id).mkdir(parents=True, exist_ok=True)
+        (root / "analysis" / song_id).mkdir(parents=True, exist_ok=True)
+        (root / "practice" / song_id / "sessions").mkdir(parents=True, exist_ok=True)
 
     def remove_song(self, song_id: UUID) -> bool:
         initial_count = len(self.model.songs)
