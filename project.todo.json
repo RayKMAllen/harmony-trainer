@@ -44,6 +44,19 @@
       "completed_at": "2025-12-01T09:55:31.782Z"
     },
     {
+      "id": "T1-04",
+      "desc": "Implement automatic metadata extraction",
+      "deps": ["T1-02"],
+      "dod": [
+        "Add tinytag dependency",
+        "Make title/artist optional in CLI add command",
+        "Extract metadata from file if arguments missing",
+        "Fallback to filename if no metadata",
+        "Test with file containing metadata vs no metadata"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "T1-03",
       "desc": "Create data directory structure",
       "deps": ["T1-02"],

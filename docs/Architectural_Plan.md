@@ -132,6 +132,7 @@ data/
 | PyTorch | ML model runtime |
 | Typer | CLI framework |
 | FastAPI/Flask | Web UI backend |
+| tinytag | Audio metadata extraction |
 
 ## Risks & Open Questions
 
