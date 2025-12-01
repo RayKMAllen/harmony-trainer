@@ -1,0 +1,200 @@
+{
+  "project": "harmony-trainer",
+  "version": "0.1.0",
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Foundation",
+      "description": "Project setup, tooling, CI, minimal walking skeleton"
+    },
+    {
+      "id": "M2",
+      "name": "Core Features",
+      "description": "Audio separation, pitch extraction, target generation"
+    },
+    {
+      "id": "M3",
+      "name": "Hardening",
+      "description": "Evaluation harness, practice UI, testing, documentation"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1-01",
+      "desc": "Set up CLI skeleton with Typer",
+      "deps": [],
+      "dod": [
+        "CLI entry point defined in pyproject.toml",
+        "Basic app structure in src/harmony_trainer/cli/",
+        "harmony-trainer --help works"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T1-02",
+      "desc": "Implement song registry (add/list/remove)",
+      "deps": ["T1-01"],
+      "dod": [
+        "Song model defined with Pydantic",
+        "data/songs.json created on first use",
+        "CLI commands: add, list, remove",
+        "Integration test for song CRUD"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T1-03",
+      "desc": "Create data directory structure",
+      "deps": ["T1-02"],
+      "dod": [
+        "data/stems/, data/analysis/, data/practice/ created",
+        "Per-song subdirectories created on add"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-01",
+      "desc": "Integrate Demucs for vocal separation",
+      "deps": ["T1-03"],
+      "dod": [
+        "Demucs wrapper in src/harmony_trainer/separation/demucs.py",
+        "Separates audio into vocals_all.wav and instrumental.wav",
+        "Outputs saved to data/stems/{song_id}/",
+        "Integration test with sample audio"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-02",
+      "desc": "Integrate svoice for lead/backing split",
+      "deps": ["T2-01"],
+      "dod": [
+        "svoice wrapper in src/harmony_trainer/separation/svoice.py",
+        "Attempts to split vocals_all into lead.wav and backing.wav",
+        "Graceful failure if separation unsuccessful",
+        "Integration test"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-03",
+      "desc": "Integrate MedleyVox as alternative splitter",
+      "deps": ["T2-01"],
+      "dod": [
+        "MedleyVox wrapper in src/harmony_trainer/separation/medleyvox.py",
+        "Alternative path for lead/backing separation",
+        "Integration test"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-04",
+      "desc": "Implement torchcrepe pitch extraction",
+      "deps": ["T2-01"],
+      "dod": [
+        "Pitch extractor in src/harmony_trainer/pitch/extractor.py",
+        "Extracts pitch contour from mono audio",
+        "Returns time-series of pitch values",
+        "Integration test with sample audio"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-05",
+      "desc": "Implement target generation pipeline",
+      "deps": ["T2-04"],
+      "dod": [
+        "Target generator in src/harmony_trainer/analysis/targets.py",
+        "Generates targets.json with lead and optional backing",
+        "Sets has_backing flag based on backing.wav existence",
+        "Integration test"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-06",
+      "desc": "Create full processing pipeline CLI command",
+      "deps": ["T2-05"],
+      "dod": [
+        "CLI command: harmony-trainer process {song_id}",
+        "Runs Demucs, splitters, pitch extraction, target generation",
+        "Updates song status in songs.json",
+        "Integration test"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-01",
+      "desc": "Build evaluation harness for splitter comparison",
+      "deps": ["T2-06"],
+      "dod": [
+        "eval/run_eval.py script",
+        "Runs both splitters on test songs",
+        "Stores results in eval/{splitter}/{song_id}/",
+        "Generates summary report"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-02",
+      "desc": "Implement practice session logic",
+      "deps": ["T2-05"],
+      "dod": [
+        "Session manager in src/harmony_trainer/practice/session.py",
+        "Loads targets for a song",
+        "Compares live pitch to target",
+        "Calculates cents deviation"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-03",
+      "desc": "Build practice UI backend (FastAPI)",
+      "deps": ["T3-02"],
+      "dod": [
+        "FastAPI app in src/harmony_trainer/ui/app.py",
+        "Endpoints for song list, targets, session state",
+        "WebSocket for real-time pitch data",
+        "Integration test"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-04",
+      "desc": "Build practice UI frontend",
+      "deps": ["T3-03"],
+      "dod": [
+        "Web interface with timeline visualization",
+        "Target note blocks display",
+        "Live pitch trace overlay",
+        "Cents deviation indicator",
+        "Mode selector (Lead/Backing)"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-05",
+      "desc": "Add playback controls to UI",
+      "deps": ["T3-04"],
+      "dod": [
+        "Loop selection",
+        "Playback speed control",
+        "Mute/solo stems",
+        "Instrument-only playback"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-06",
+      "desc": "Documentation and final testing",
+      "deps": ["T3-05"],
+      "dod": [
+        "README with setup and usage instructions",
+        "API documentation",
+        "End-to-end test of full workflow",
+        "Evaluation results documented"
+      ],
+      "status": "todo"
+    }
+  ]
+}
