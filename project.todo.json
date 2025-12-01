@@ -28,7 +28,7 @@
         "Basic app structure in src/harmony_trainer/cli/",
         "harmony-trainer --help works"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "T1-02",
