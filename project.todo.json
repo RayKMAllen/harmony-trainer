@@ -40,7 +40,8 @@
         "CLI commands: add, list, remove",
         "Integration test for song CRUD"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-01T09:55:31.782Z"
     },
     {
       "id": "T1-03",
