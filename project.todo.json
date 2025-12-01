@@ -78,7 +78,8 @@
         "Outputs saved to data/stems/{song_id}/",
         "Integration test with sample audio"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-01T16:42:00.000Z"
     },
     {
       "id": "T2-02",
