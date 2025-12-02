@@ -135,6 +135,19 @@
       "completed_at": "2025-12-01T16:48:00.000Z"
     },
     {
+      "id": "T2-07",
+      "desc": "Apply SeparationError contract to separation wrappers for development",
+      "deps": ["T2-02", "T2-03"],
+      "dod": [
+        "SVoiceWrapper and MedleyVoxWrapper separate() methods raise SeparationError on failure",
+        "Convenience functions separate_vocals and separate_vocals_medleyvox propagate SeparationError",
+        "Demucs separation functions aligned with ADR 0004 where needed",
+        "CLI and tests updated to fail fast on uncaught SeparationError in development",
+        "No separation API returns (Path | None, Path | None)"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "T2-05",
       "desc": "Implement target generation pipeline",
       "deps": ["T2-04"],
@@ -228,6 +241,18 @@
         "API documentation",
         "End-to-end test of full workflow",
         "Evaluation results documented"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T3-07",
+      "desc": "Add production-oriented handling and reporting for SeparationError",
+      "deps": ["T2-06", "T3-01"],
+      "dod": [
+        "CLI supports strict vs non-strict behavior for SeparationError per ADR 0004",
+        "Separation failures logged with song id, backend, and error message",
+        "Batch runs continue past per-song SeparationError and emit a summary report",
+        "Tests cover strict and non-strict modes and logging expectations"
       ],
       "status": "todo"
     }
