@@ -7,6 +7,8 @@ from uuid import UUID
 import torch
 import torchaudio  # type: ignore[import-untyped]
 
+from harmony_trainer.audio_io import load_audio, save_wav
+
 if TYPE_CHECKING:
     from demucs.htdemucs import HTDemucs
 
@@ -41,7 +43,7 @@ class DemucsWrapper:
         model = self.model
 
         # Load audio
-        waveform, sample_rate = torchaudio.load(str(audio_path))
+        waveform, sample_rate = load_audio(audio_path)
 
         # Resample if needed
         model_sr: int = model.samplerate
@@ -84,8 +86,8 @@ class DemucsWrapper:
         vocals_path = output_dir / "vocals_all.wav"
         instrumental_path = output_dir / "instrumental.wav"
 
-        torchaudio.save(str(vocals_path), vocals.cpu(), model_sr)
-        torchaudio.save(str(instrumental_path), instrumental.cpu(), model_sr)
+        save_wav(vocals_path, vocals.cpu(), model_sr)
+        save_wav(instrumental_path, instrumental.cpu(), model_sr)
 
         return vocals_path, instrumental_path
 

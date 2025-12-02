@@ -8,6 +8,8 @@ import numpy as np
 import torch
 import torchaudio  # type: ignore[import-untyped]
 
+from harmony_trainer.audio_io import load_audio
+
 
 @dataclass
 class PitchContour:
@@ -48,7 +50,7 @@ class PitchExtractor:
         import torchcrepe  # type: ignore[import-untyped]
 
         # Load audio
-        waveform, sample_rate = torchaudio.load(str(audio_path))
+        waveform, sample_rate = load_audio(audio_path)
 
         # Convert to mono if stereo
         if waveform.shape[0] > 1:
