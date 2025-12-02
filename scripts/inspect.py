@@ -7,33 +7,46 @@ from uuid import UUID
 
 import numpy as np
 
-from harmony_trainer.pitch.extractor import PitchExtractor
-from harmony_trainer.separation.demucs import DemucsWrapper
-
 # move to the project root
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-print(os.getcwd())
-
-
-# %%
 
 scartissue_uuid = UUID("328f1360-bfb1-436b-96fc-208d101fc2fe")
 
 audio_path = Path(r"C:\Users\WIN10\Music\Scar Tissue.mp3")
 song_id = scartissue_uuid
 data_dir = Path("data")
-model_name = "htdemucs"
-
-
-wrapper = DemucsWrapper(model_name=model_name)
 output_dir = data_dir / "stems" / str(song_id)
-vocals_path, instrumental_path = wrapper.separate(audio_path, output_dir)
+
 
 # %%
 
+# Demucs
+
+from harmony_trainer.separation.demucs import DemucsWrapper
+
+model_name = "htdemucs"
+
+wrapper = DemucsWrapper(model_name=model_name)
+vocals_path, instrumental_path = wrapper.separate(audio_path, output_dir)
+
+#%%
+
+#SVoice
+
+from harmony_trainer.separation.svoice import SVoiceWrapper
+
+# vocals_path = Path('data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav')
+
+wrapper = SVoiceWrapper()
+lead_path, backing_path = wrapper.separate(vocals_path, output_dir)
+
+# %%
+
+# Pitch extraction
+
+from harmony_trainer.pitch.extractor import PitchExtractor
+
 song_id = scartissue_uuid
-data_dir = Path("data")
 model = "full"
 
 extractor = PitchExtractor(model=model)
