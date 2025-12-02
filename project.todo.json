@@ -107,6 +107,20 @@
       "completed_at": "2025-12-02T14:56:00.000Z"
     },
     {
+      "id": "T2-03a",
+      "desc": "Implement model weight loader subsystem per ADR-0003",
+      "deps": ["T2-03"],
+      "dod": [
+        "Create src/harmony_trainer/models/ directory with __init__.py",
+        "Implement medleyvox.py loader with get_medleyvox_checkpoint_path() and load_medleyvox_model()",
+        "Fallback hierarchy: MEDLEYVOX_WEIGHTS_PATH env var -> models/medleyvox/vocals_100.pth -> hf_hub_download()",
+        "Add huggingface_hub dependency to pyproject.toml",
+        "Update src/harmony_trainer/separation/medleyvox.py to use the new loader",
+        "Unit test for loader fallback logic"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "T2-04",
       "desc": "Implement torchcrepe pitch extraction",
       "deps": ["T2-01"],
