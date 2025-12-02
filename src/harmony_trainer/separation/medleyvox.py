@@ -8,14 +8,12 @@ import torch
 import torchaudio  # type: ignore[import-untyped]
 
 from harmony_trainer.audio_io import load_audio, save_wav
+from harmony_trainer.model_loaders.medleyvox import (
+    CheckpointNotFoundError,
+    get_medleyvox_checkpoint_path,
+    load_medleyvox_model,
+)
 from harmony_trainer.separation.svoice import SeparationError
-
-
-def _get_cache_dir() -> Path:
-    """Get cache directory for MedleyVox checkpoints."""
-    cache_dir = Path.home() / ".cache" / "harmony_trainer" / "medleyvox"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
 
 
 class MedleyVoxWrapper:
@@ -33,50 +31,29 @@ class MedleyVoxWrapper:
 
         Args:
             checkpoint_path: Path to pretrained MedleyVox checkpoint.
-                If None, will look for checkpoint in cache directory.
+                If None, uses the loader subsystem with fallback hierarchy.
         """
         self._checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
-        self._model: Any | None = None
+        self._model: dict[str, Any] | None = None
 
     @property
     def checkpoint_path(self) -> Path:
-        """Get checkpoint path, checking cache if not explicitly provided."""
+        """Get checkpoint path using the loader subsystem."""
         if self._checkpoint_path is None:
-            cache_dir = _get_cache_dir()
-            # Look for any .pth or .pt file in cache
-            checkpoints = list(cache_dir.glob("*.pth")) + list(cache_dir.glob("*.pt"))
-            if checkpoints:
-                self._checkpoint_path = checkpoints[0]
-            else:
-                raise SeparationError(
-                    "No MedleyVox checkpoint found. Please provide checkpoint_path. "
-                    "See https://github.com/jeonchangbin49/MedleyVox for model downloads."
-                )
+            try:
+                self._checkpoint_path = get_medleyvox_checkpoint_path()
+            except CheckpointNotFoundError as e:
+                raise SeparationError(str(e)) from e
         if not self._checkpoint_path.exists():
             raise SeparationError(f"Checkpoint not found: {self._checkpoint_path}")
         return self._checkpoint_path
 
     @property
-    def model(self) -> Any:
+    def model(self) -> dict[str, Any]:
         if self._model is None:
             try:
-                pkg = torch.load(self.checkpoint_path, map_location="cpu", weights_only=False)
-                # MedleyVox typically stores model state_dict under 'model' or 'state_dict'
-                if isinstance(pkg, dict):
-                    if "model" in pkg:
-                        state_dict = pkg["model"]
-                    elif "state_dict" in pkg:
-                        state_dict = pkg["state_dict"]
-                    else:
-                        state_dict = pkg
-                else:
-                    state_dict = pkg
-
-                # MedleyVox uses a UNet-style architecture
-                # For now, store the state_dict; actual model instantiation
-                # requires the MedleyVox model class
-                self._model = state_dict
-            except Exception as e:
+                self._model = load_medleyvox_model(self.checkpoint_path)
+            except (CheckpointNotFoundError, RuntimeError) as e:
                 raise SeparationError(f"Failed to load MedleyVox model: {e}") from e
         return self._model
 
