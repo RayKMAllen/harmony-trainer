@@ -35,7 +35,7 @@ vocals_path, instrumental_path = wrapper.separate(audio_path, output_dir)
 
 from harmony_trainer.separation.medleyvox import MedleyVoxWrapper
 
-vocals_path = Path('data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav')
+vocals_path = Path("data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav")
 
 wrapper = MedleyVoxWrapper()
 lead_path, backing_path = wrapper.separate(vocals_path, output_dir)

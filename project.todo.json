@@ -182,7 +182,8 @@
         "Module is inference-only (no training/CLI) and imports cleanly in environments without GPU",
         "Basic smoke test constructs the model and runs a forward pass on a short synthetic tensor"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-02T19:29:00.000Z"
     },
     {
       "id": "T2-09",
