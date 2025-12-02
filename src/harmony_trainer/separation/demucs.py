@@ -8,6 +8,7 @@ import torch
 import torchaudio  # type: ignore[import-untyped]
 
 from harmony_trainer.audio_io import load_audio, save_wav
+from harmony_trainer.separation.svoice import SeparationError
 
 if TYPE_CHECKING:
     from demucs.htdemucs import HTDemucs
@@ -23,10 +24,13 @@ class DemucsWrapper:
     @property
     def model(self) -> "HTDemucs":
         if self._model is None:
-            from demucs.pretrained import get_model
+            try:
+                from demucs.pretrained import get_model
 
-            self._model = get_model(self.model_name)
-            self._model.eval()
+                self._model = get_model(self.model_name)
+                self._model.eval()
+            except Exception as e:
+                raise SeparationError(f"Failed to load Demucs model: {e}") from e
         return self._model
 
     def separate(
@@ -37,7 +41,21 @@ class DemucsWrapper:
         """Separate audio into vocals and instrumental.
 
         Returns paths to (vocals_all.wav, instrumental.wav).
+        Raises SeparationError on failure.
         """
+        try:
+            return self._do_separate(audio_path, output_dir)
+        except SeparationError:
+            raise
+        except Exception as e:
+            raise SeparationError(f"Demucs separation failed: {e}") from e
+
+    def _do_separate(
+        self,
+        audio_path: Path,
+        output_dir: Path,
+    ) -> tuple[Path, Path]:
+        """Internal separation logic."""
         from demucs.apply import apply_model
 
         model = self.model

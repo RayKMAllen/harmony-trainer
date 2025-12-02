@@ -145,7 +145,8 @@
         "CLI and tests updated to fail fast on uncaught SeparationError in development",
         "No separation API returns (Path | None, Path | None)"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-02T18:29:00.000Z"
     },
     {
       "id": "T2-05",

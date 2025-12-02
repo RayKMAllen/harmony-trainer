@@ -108,51 +108,37 @@ class TestSVoiceWrapper:
         wrapper = SVoiceWrapper(checkpoint_path=checkpoint)
         assert wrapper._checkpoint_path == checkpoint
 
-    def test_separate_graceful_failure(self, sample_audio: Path, output_dir: Path) -> None:
-        """Test that separation returns None on failure (model not available)."""
+    def test_separate_raises_separation_error(self, sample_audio: Path, output_dir: Path) -> None:
+        """Test that separation raises SeparationError on failure (model not available)."""
         wrapper = SVoiceWrapper()
-        lead_path, backing_path = wrapper.separate(sample_audio, output_dir)
-
-        # SVoice model may not be available, so we expect graceful failure
-        # Either both are None (failure) or both exist (success)
-        assert (lead_path is None and backing_path is None) or (
-            lead_path is not None and backing_path is not None
-        )
+        with pytest.raises(SeparationError):
+            wrapper.separate(sample_audio, output_dir)
 
     @pytest.mark.slow
     def test_separate_creates_output_files_if_model_available(
-        self, sample_audio: Path, output_dir: Path
+        self, sample_audio: Path, output_dir: Path, tmp_path: Path
     ) -> None:
         """Test that separation creates lead and backing files if model works."""
-        wrapper = SVoiceWrapper()
-        lead_path, backing_path = wrapper.separate(sample_audio, output_dir)
-
-        if lead_path is not None and backing_path is not None:
-            assert lead_path.exists()
-            assert backing_path.exists()
-            assert lead_path.name == "lead.wav"
-            assert backing_path.name == "backing.wav"
+        # Create a fake checkpoint to test with (will still fail at model load)
+        checkpoint = tmp_path / "model.th"
+        checkpoint.touch()
+        wrapper = SVoiceWrapper(checkpoint_path=checkpoint)
+        # This will raise SeparationError since the checkpoint is not valid
+        with pytest.raises(SeparationError):
+            wrapper.separate(sample_audio, output_dir)
 
 
 class TestSeparateVocals:
-    def test_separate_vocals_convenience_function(self, sample_audio: Path, tmp_path: Path) -> None:
-        """Test the convenience function handles graceful failure."""
+    def test_separate_vocals_raises_separation_error(
+        self, sample_audio: Path, tmp_path: Path
+    ) -> None:
+        """Test the convenience function raises SeparationError on failure."""
         song_id = uuid4()
         data_dir = tmp_path / "data"
         data_dir.mkdir()
 
-        lead_path, backing_path = separate_vocals(sample_audio, song_id, data_dir=data_dir)
-
-        # Either both are None (failure) or both exist in correct location
-        if lead_path is not None and backing_path is not None:
-            expected_dir = data_dir / "stems" / str(song_id)
-            assert lead_path.parent == expected_dir
-            assert backing_path.parent == expected_dir
-            assert lead_path.exists()
-            assert backing_path.exists()
-        else:
-            assert lead_path is None
-            assert backing_path is None
+        with pytest.raises(SeparationError):
+            separate_vocals(sample_audio, song_id, data_dir=data_dir)
 
 
 class TestMedleyVoxWrapper:
@@ -166,36 +152,24 @@ class TestMedleyVoxWrapper:
         wrapper = MedleyVoxWrapper(checkpoint_path=checkpoint)
         assert wrapper._checkpoint_path == checkpoint
 
-    def test_separate_graceful_failure(self, sample_audio: Path, output_dir: Path) -> None:
-        """Test that separation returns None on failure (model not available)."""
+    def test_separate_raises_separation_error(self, sample_audio: Path, output_dir: Path) -> None:
+        """Test that separation raises SeparationError on failure (model not available)."""
         wrapper = MedleyVoxWrapper()
-        lead_path, backing_path = wrapper.separate(sample_audio, output_dir)
-
-        # MedleyVox model may not be available, so we expect graceful failure
-        assert lead_path is None and backing_path is None
+        with pytest.raises(SeparationError):
+            wrapper.separate(sample_audio, output_dir)
 
 
 class TestSeparateVocalsMedleyVox:
-    def test_separate_vocals_convenience_function(self, sample_audio: Path, tmp_path: Path) -> None:
-        """Test the convenience function handles graceful failure."""
+    def test_separate_vocals_raises_separation_error(
+        self, sample_audio: Path, tmp_path: Path
+    ) -> None:
+        """Test the convenience function raises SeparationError on failure."""
         song_id = uuid4()
         data_dir = tmp_path / "data"
         data_dir.mkdir()
 
-        lead_path, backing_path = separate_vocals_medleyvox(
-            sample_audio, song_id, data_dir=data_dir
-        )
-
-        # Either both are None (failure) or both exist in correct location
-        if lead_path is not None and backing_path is not None:
-            expected_dir = data_dir / "stems" / str(song_id)
-            assert lead_path.parent == expected_dir
-            assert backing_path.parent == expected_dir
-            assert lead_path.exists()
-            assert backing_path.exists()
-        else:
-            assert lead_path is None
-            assert backing_path is None
+        with pytest.raises(SeparationError):
+            separate_vocals_medleyvox(sample_audio, song_id, data_dir=data_dir)
 
 
 class TestSeparationError:

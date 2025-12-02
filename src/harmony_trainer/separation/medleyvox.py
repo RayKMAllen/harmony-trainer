@@ -61,16 +61,13 @@ class MedleyVoxWrapper:
         self,
         vocals_path: Path,
         output_dir: Path,
-    ) -> tuple[Path | None, Path | None]:
-        """Attempt to separate vocals into lead and backing.
+    ) -> tuple[Path, Path]:
+        """Separate vocals into lead and backing.
 
-        Returns paths to (lead.wav, backing.wav) or (None, None) on failure.
-        Gracefully handles separation failures.
+        Returns paths to (lead.wav, backing.wav).
+        Raises SeparationError on failure.
         """
-        try:
-            return self._do_separate(vocals_path, output_dir)
-        except Exception:
-            return None, None
+        return self._do_separate(vocals_path, output_dir)
 
     def _do_separate(
         self,
@@ -125,10 +122,11 @@ def separate_vocals_medleyvox(
     vocals_path: Path,
     song_id: UUID,
     data_dir: Path = Path("data"),
-) -> tuple[Path | None, Path | None]:
+) -> tuple[Path, Path]:
     """Convenience function to separate vocals using MedleyVox.
 
-    Returns paths to (lead.wav, backing.wav) or (None, None) on failure.
+    Returns paths to (lead.wav, backing.wav).
+    Raises SeparationError on failure.
     """
     wrapper = MedleyVoxWrapper()
     output_dir = data_dir / "stems" / str(song_id)
