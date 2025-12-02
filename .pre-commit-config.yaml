@@ -3,7 +3,9 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^scripts/
       - id: end-of-file-fixer
+        exclude: ^scripts/
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files
@@ -13,7 +15,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        exclude: ^scripts/
       - id: ruff-format
+        exclude: ^scripts/
 
   - repo: local
     hooks:

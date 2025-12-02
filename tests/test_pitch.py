@@ -6,8 +6,8 @@ from uuid import uuid4
 import numpy as np
 import pytest
 import torch
-import torchaudio
 
+from harmony_trainer.audio_io import save_wav
 from harmony_trainer.pitch.extractor import PitchContour, PitchExtractor, extract_pitch
 
 
@@ -23,7 +23,7 @@ def sample_mono_audio(tmp_path: Path) -> Path:
     waveform = torch.sin(2 * np.pi * frequency * t).unsqueeze(0)
 
     audio_path = tmp_path / "test_mono.wav"
-    torchaudio.save(str(audio_path), waveform, sample_rate)
+    save_wav(audio_path, waveform, sample_rate)
     return audio_path
 
 
@@ -39,7 +39,7 @@ def sample_stereo_audio(tmp_path: Path) -> Path:
     waveform = torch.stack([mono, mono])
 
     audio_path = tmp_path / "test_stereo.wav"
-    torchaudio.save(str(audio_path), waveform, sample_rate)
+    save_wav(audio_path, waveform, sample_rate)
     return audio_path
 
 
