@@ -151,7 +151,7 @@
     {
       "id": "T2-05",
       "desc": "Implement target generation pipeline",
-      "deps": ["T2-04"],
+      "deps": ["T2-04", "T2-09"],
       "dod": [
         "Target generator in src/harmony_trainer/analysis/targets.py",
         "Generates targets.json with lead and optional backing",
@@ -169,6 +169,31 @@
         "Runs Demucs, splitters, pitch extraction, target generation",
         "Updates song status in songs.json",
         "Integration test"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-08",
+      "desc": "Vendor MedleyVox model architecture under harmony_trainer.models",
+      "deps": ["T2-03a"],
+      "dod": [
+        "MedleyVox network class implemented in src/harmony_trainer/models/medleyvox.py mirroring upstream architecture used for vocals 100.pth",
+        "Constructor and forward() signatures support the checkpoint format documented in ADR 0005",
+        "Module is inference-only (no training/CLI) and imports cleanly in environments without GPU",
+        "Basic smoke test constructs the model and runs a forward pass on a short synthetic tensor"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-09",
+      "desc": "Wire MedleyVox checkpoint loader and wrapper to use real model inference",
+      "deps": ["T2-08", "T2-07"],
+      "dod": [
+        "load_medleyvox_model() in src/harmony_trainer/model_loaders/medleyvox.py returns a torch.nn.Module in eval mode on CPU",
+        "Checkpoint formats from Cyru5/MedleyVox (vocals 100.pth) are normalized into a single state_dict and mismatches surface as clear errors",
+        "MedleyVoxWrapper.model caches the module and wraps loader errors in SeparationError per ADR 0004",
+        "MedleyVoxWrapper._do_separate() runs a forward pass, maps outputs to lead.wav and backing.wav, and saves them via _save_outputs()",
+        "Integration-style test using a fake MedleyVox module verifies separate_vocals_medleyvox() produces valid stem files"
       ],
       "status": "todo"
     },
