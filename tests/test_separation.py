@@ -214,6 +214,76 @@ class TestSeparateVocalsMedleyVox:
         assert lead_path.exists()
         assert backing_path.exists()
 
+    def test_separate_vocals_with_fake_model(
+        self, sample_audio: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Integration test: verify separation produces valid stems using a fake model."""
+        import torch.nn as nn
+
+        class FakeMedleyVoxNet(nn.Module):
+            """Fake model that returns two sources (lead, backing) from input."""
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.num_sources = 2
+
+            def forward(self, mixture: torch.Tensor) -> torch.Tensor:
+                # mixture: (batch, samples) or (batch, 1, samples)
+                if mixture.dim() == 3:
+                    mixture = mixture.squeeze(1)
+                batch, samples = mixture.shape
+                # Return (batch, 2, samples) - lead is scaled input, backing is inverted
+                lead = mixture * 0.7
+                backing = mixture * 0.3
+                return torch.stack([lead, backing], dim=1)
+
+        def mock_load_model(checkpoint_path: Path | None = None) -> nn.Module:
+            model = FakeMedleyVoxNet()
+            model.eval()
+            return model
+
+        # Patch load_medleyvox_model to return our fake model
+        monkeypatch.setattr(
+            "harmony_trainer.separation.medleyvox.load_medleyvox_model",
+            mock_load_model,
+        )
+
+        # Create a fake checkpoint file so the path check passes
+        fake_checkpoint = tmp_path / "fake_checkpoint.pth"
+        fake_checkpoint.write_bytes(b"fake")
+
+        # Patch get_medleyvox_checkpoint_path to return the fake path
+        monkeypatch.setattr(
+            "harmony_trainer.separation.medleyvox.get_medleyvox_checkpoint_path",
+            lambda: fake_checkpoint,
+        )
+
+        song_id = uuid4()
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        lead_path, backing_path = separate_vocals_medleyvox(
+            sample_audio, song_id, data_dir=data_dir
+        )
+
+        # Verify output files exist
+        assert lead_path.exists(), "lead.wav should exist"
+        assert backing_path.exists(), "backing.wav should exist"
+        assert lead_path.name == "lead.wav"
+        assert backing_path.name == "backing.wav"
+
+        # Verify output files are valid audio
+        lead_audio, lead_sr = load_audio(lead_path)
+        backing_audio, backing_sr = load_audio(backing_path)
+
+        # Check sample rates match expected (44100 Hz for MedleyVox)
+        assert lead_sr == 44100, f"Expected 44100 Hz, got {lead_sr}"
+        assert backing_sr == 44100, f"Expected 44100 Hz, got {backing_sr}"
+
+        # Check audio has samples (not empty)
+        assert lead_audio.shape[-1] > 0, "lead.wav should have samples"
+        assert backing_audio.shape[-1] > 0, "backing.wav should have samples"
+
 
 class TestSeparationError:
     def test_separation_error_is_exception(self) -> None:

@@ -250,7 +250,8 @@
         "MedleyVoxWrapper._do_separate() runs a forward pass, maps outputs to lead.wav and backing.wav, and saves them via _save_outputs()",
         "Integration-style test using a fake MedleyVox module verifies separate_vocals_medleyvox() produces valid stem files"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-03T06:21:00.000Z"
     },
     {
       "id": "T3-01",
