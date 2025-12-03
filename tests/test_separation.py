@@ -38,6 +38,7 @@ def sample_audio(tmp_path: Path) -> Path:
 
     audio_path = tmp_path / "test_audio.wav"
     save_wav(audio_path, waveform, sample_rate)
+    save_wav(audio_path, waveform, sample_rate)
     return audio_path
 
 
@@ -76,6 +77,8 @@ class TestDemucsWrapper:
         wrapper = DemucsWrapper()
         vocals_path, instrumental_path = wrapper.separate(sample_audio, output_dir)
 
+        vocals, sr1 = load_audio(vocals_path)
+        instrumental, sr2 = load_audio(instrumental_path)
         vocals, sr1 = load_audio(vocals_path)
         instrumental, sr2 = load_audio(instrumental_path)
 

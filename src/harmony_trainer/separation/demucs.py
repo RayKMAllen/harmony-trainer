@@ -62,6 +62,7 @@ class DemucsWrapper:
 
         # Load audio
         waveform, sample_rate = load_audio(audio_path)
+        waveform, sample_rate = load_audio(audio_path)
 
         # Resample if needed
         model_sr: int = model.samplerate
@@ -104,6 +105,8 @@ class DemucsWrapper:
         vocals_path = output_dir / "vocals_all.wav"
         instrumental_path = output_dir / "instrumental.wav"
 
+        save_wav(vocals_path, vocals.cpu(), model_sr)
+        save_wav(instrumental_path, instrumental.cpu(), model_sr)
         save_wav(vocals_path, vocals.cpu(), model_sr)
         save_wav(instrumental_path, instrumental.cpu(), model_sr)
 
