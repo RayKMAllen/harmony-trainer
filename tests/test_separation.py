@@ -38,7 +38,6 @@ def sample_audio(tmp_path: Path) -> Path:
 
     audio_path = tmp_path / "test_audio.wav"
     save_wav(audio_path, waveform, sample_rate)
-    save_wav(audio_path, waveform, sample_rate)
     return audio_path
 
 
@@ -77,8 +76,6 @@ class TestDemucsWrapper:
         wrapper = DemucsWrapper()
         vocals_path, instrumental_path = wrapper.separate(sample_audio, output_dir)
 
-        vocals, sr1 = load_audio(vocals_path)
-        instrumental, sr2 = load_audio(instrumental_path)
         vocals, sr1 = load_audio(vocals_path)
         instrumental, sr2 = load_audio(instrumental_path)
 
@@ -403,6 +400,190 @@ class TestSeparateVocalsBSRoFormer:
 
         with pytest.raises(SeparationError):
             separate_vocals_bs_roformer(sample_audio, song_id, data_dir=data_dir)
+
+
+class TestChunkedInference:
+    """Tests for chunked inference with overlap-add reconstruction."""
+
+    def test_chunked_reconstruction_preserves_signal(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that chunked inference correctly reconstructs a known signal."""
+        import torch.nn as nn
+
+        class IdentityModel(nn.Module):
+            """Model that returns input unchanged (identity function)."""
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.sample_rate = 44100
+
+            def forward(self, raw_audio: torch.Tensor) -> torch.Tensor:
+                # raw_audio: (batch, channels, samples)
+                # Return (batch, stems=1, channels, samples) - unchanged
+                return raw_audio.unsqueeze(1)
+
+        def mock_load_model(checkpoint_path: Path | None = None) -> nn.Module:
+            model = IdentityModel()
+            model.eval()
+            return model
+
+        # Patch loader
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.load_bs_roformer_model",
+            mock_load_model,
+        )
+
+        # Create fake checkpoint
+        fake_checkpoint = tmp_path / "fake.ckpt"
+        fake_checkpoint.write_bytes(b"fake")
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.get_bs_roformer_checkpoint_path",
+            lambda: fake_checkpoint,
+        )
+
+        # Create a known test signal: 5 seconds of sine wave at 440Hz
+        sample_rate = 44100
+        duration = 5.0
+        t = torch.linspace(0, duration, int(sample_rate * duration))
+        left = torch.sin(2 * np.pi * 440 * t)
+        right = torch.sin(2 * np.pi * 554 * t)
+        original = torch.stack([left, right])
+
+        # Save test audio
+        audio_path = tmp_path / "test_signal.wav"
+        save_wav(audio_path, original, sample_rate)
+
+        # Process with small chunks to force multiple chunks
+        wrapper = BSRoFormerWrapper(
+            checkpoint_path=fake_checkpoint,
+            chunk_seconds=2.0,  # 2 second chunks
+            overlap_seconds=0.5,  # 0.5 second overlap
+        )
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        lead_path, backing_path = wrapper.separate(audio_path, output_dir)
+
+        # Load reconstructed lead
+        lead_audio, lead_sr = load_audio(lead_path)
+
+        # With identity model, lead should match original
+        assert lead_sr == sample_rate
+        assert lead_audio.shape == original.shape
+
+        # Check reconstruction accuracy (allow small numerical error from cross-fade)
+        max_error = torch.abs(lead_audio - original).max().item()
+        assert max_error < 0.01, f"Reconstruction error too high: {max_error}"
+
+    def test_chunked_inference_logs_progress(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that chunked inference logs progress percentage."""
+        import logging
+
+        import torch.nn as nn
+
+        class IdentityModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.sample_rate = 44100
+
+            def forward(self, raw_audio: torch.Tensor) -> torch.Tensor:
+                return raw_audio.unsqueeze(1)
+
+        def mock_load_model(checkpoint_path: Path | None = None) -> nn.Module:
+            model = IdentityModel()
+            model.eval()
+            return model
+
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.load_bs_roformer_model",
+            mock_load_model,
+        )
+
+        fake_checkpoint = tmp_path / "fake.ckpt"
+        fake_checkpoint.write_bytes(b"fake")
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.get_bs_roformer_checkpoint_path",
+            lambda: fake_checkpoint,
+        )
+
+        # Create 4 second audio to get multiple chunks with 2s chunk size
+        sample_rate = 44100
+        duration = 4.0
+        t = torch.linspace(0, duration, int(sample_rate * duration))
+        waveform = torch.stack([torch.sin(2 * np.pi * 440 * t)] * 2)
+
+        audio_path = tmp_path / "test.wav"
+        save_wav(audio_path, waveform, sample_rate)
+
+        wrapper = BSRoFormerWrapper(
+            checkpoint_path=fake_checkpoint,
+            chunk_seconds=2.0,
+            overlap_seconds=0.5,
+        )
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        with caplog.at_level(logging.INFO, logger="harmony_trainer.separation.bs_roformer"):
+            wrapper.separate(audio_path, output_dir)
+
+        # Check that progress was logged
+        progress_logs = [r for r in caplog.records if "Processing" in r.message]
+        assert len(progress_logs) >= 2, "Should log progress for multiple chunks"
+        assert any("100%" in r.message for r in progress_logs), "Should log 100% completion"
+
+    def test_short_audio_single_chunk(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that audio shorter than chunk size is processed in single pass."""
+        import torch.nn as nn
+
+        class IdentityModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.sample_rate = 44100
+
+            def forward(self, raw_audio: torch.Tensor) -> torch.Tensor:
+                return raw_audio.unsqueeze(1)
+
+        def mock_load_model(checkpoint_path: Path | None = None) -> nn.Module:
+            model = IdentityModel()
+            model.eval()
+            return model
+
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.load_bs_roformer_model",
+            mock_load_model,
+        )
+
+        fake_checkpoint = tmp_path / "fake.ckpt"
+        fake_checkpoint.write_bytes(b"fake")
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.get_bs_roformer_checkpoint_path",
+            lambda: fake_checkpoint,
+        )
+
+        # Create 1 second audio (shorter than default 30s chunk)
+        sample_rate = 44100
+        duration = 1.0
+        t = torch.linspace(0, duration, int(sample_rate * duration))
+        original = torch.stack([torch.sin(2 * np.pi * 440 * t)] * 2)
+
+        audio_path = tmp_path / "short.wav"
+        save_wav(audio_path, original, sample_rate)
+
+        wrapper = BSRoFormerWrapper(checkpoint_path=fake_checkpoint)
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        lead_path, _ = wrapper.separate(audio_path, output_dir)
+        lead_audio, _ = load_audio(lead_path)
+
+        # Should match original with identity model
+        max_error = torch.abs(lead_audio - original).max().item()
+        assert max_error < 0.01
 
 
 class TestSeparationError:
