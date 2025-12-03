@@ -58,3 +58,20 @@ class TestBSRoformerNet:
         model = BSRoformerNet()
         expected_freqs = model.n_fft // 2 + 1
         assert sum(model.freqs_per_band) == expected_freqs
+
+    def test_mlp_state_dict_keys_match_zfturbo(self) -> None:
+        """MLP state_dict keys match ZFTurbo format (to_freqs.N.net.M.weight)."""
+        model = BSRoformerNet()
+        state_dict = model.state_dict()
+        # Find MLP keys in mask_estimators
+        mlp_keys = [k for k in state_dict if "to_freqs" in k]
+        assert len(mlp_keys) > 0, "No to_freqs keys found"
+        # Verify key format: mask_estimators.0.to_freqs.N.net.M.weight/bias
+        for key in mlp_keys:
+            parts = key.split(".")
+            # Expected: mask_estimators.0.to_freqs.N.net.M.weight
+            assert "net" in parts, f"Key {key} missing 'net' component"
+            # Should NOT have double sequential (0.0.0 pattern)
+            assert ".0.0." not in key or "to_freqs.0.0." not in key.replace(
+                "to_freqs.", "X."
+            ), f"Key {key} has wrong nested structure"

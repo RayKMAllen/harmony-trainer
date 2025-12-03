@@ -184,21 +184,24 @@ class BandSplit(nn.Module):
         return torch.stack(outs, dim=-2)
 
 
-class MLP(nn.Sequential):
+class MLP(nn.Module):
     """Simple MLP for mask estimation.
 
-    Nested in Sequential to match checkpoint structure (to_freqs.0.0.0.weight).
+    Uses self.net to match ZFTurbo checkpoint keys (to_freqs.N.net.0.weight).
     """
 
     def __init__(self, dim_in: int, dim_out: int, dim_hidden: int | None = None):
+        super().__init__()
         hidden = dim_hidden or dim_in
-        super().__init__(
-            nn.Sequential(
-                nn.Linear(dim_in, hidden),
-                nn.Tanh(),
-                nn.Linear(hidden, dim_out),
-            )
+        self.net = nn.Sequential(
+            nn.Linear(dim_in, hidden),
+            nn.Tanh(),
+            nn.Linear(hidden, dim_out),
         )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        result: torch.Tensor = self.net(x)
+        return result
 
 
 class MaskEstimator(nn.Module):

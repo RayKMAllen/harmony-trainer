@@ -229,7 +229,8 @@
         "Keys should be to_freqs.N.net.0.weight not to_freqs.N.0.0.weight",
         "Verify load_state_dict(strict=True) succeeds with anvuew checkpoint"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-03T12:55:00.000Z"
     },
     {
       "id": "T2-16",
