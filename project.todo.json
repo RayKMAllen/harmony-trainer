@@ -157,7 +157,8 @@
         "Add rotary-embedding-torch to pyproject.toml dependencies",
         "Verify dependencies install correctly with pip install -e ."
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-03T06:13:00.000Z"
     },
     {
       "id": "T2-11",
