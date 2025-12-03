@@ -149,6 +149,59 @@
       "completed_at": "2025-12-02T18:29:00.000Z"
     },
     {
+      "id": "T2-10",
+      "desc": "Add BS-RoFormer dependencies to pyproject.toml",
+      "deps": [],
+      "dod": [
+        "Add einops to pyproject.toml dependencies",
+        "Add rotary-embedding-torch to pyproject.toml dependencies",
+        "Verify dependencies install correctly with pip install -e ."
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-11",
+      "desc": "Vendor BS-RoFormer model architecture per ADR-0006",
+      "deps": ["T2-10"],
+      "dod": [
+        "Create src/harmony_trainer/models/bs_roformer.py with BSRoformerNet class",
+        "Port architecture from ZFTurbo/Music-Source-Separation-Training/models/bs_roformer/",
+        "Include MIT license header in vendored file",
+        "Hardcode config.yaml hyperparameters as class defaults",
+        "Inference-only: no training code",
+        "Basic smoke test constructs model and runs forward pass on synthetic tensor"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-12",
+      "desc": "Implement BS-RoFormer weight loader per ADR-0006",
+      "deps": ["T2-11"],
+      "dod": [
+        "Create src/harmony_trainer/model_loaders/bs_roformer.py",
+        "Implement get_bs_roformer_checkpoint_path() with fallback hierarchy",
+        "Implement load_bs_roformer_model() returning torch.nn.Module in eval mode",
+        "Support BS_ROFORMER_WEIGHTS_PATH env var override",
+        "Download from anvuew/BS-RoFormer on HuggingFace as fallback",
+        "Unit test for loader fallback logic"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-13",
+      "desc": "Implement BSRoFormerWrapper for lead/backing separation per ADR-0006",
+      "deps": ["T2-12"],
+      "dod": [
+        "Create src/harmony_trainer/separation/bs_roformer.py with BSRoFormerWrapper class",
+        "Match MedleyVoxWrapper interface: separate(vocals_path, output_dir) -> tuple[Path, Path]",
+        "Auto-resample input to model's expected sample rate",
+        "Output standardized as lead.wav and backing.wav",
+        "Wrap errors in SeparationError per ADR-0004",
+        "Integration test with fake model verifies stem file output"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "T2-05",
       "desc": "Implement target generation pipeline",
       "deps": ["T2-04", "T2-09"],
