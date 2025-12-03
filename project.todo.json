@@ -187,7 +187,8 @@
         "Download from anvuew/BS-RoFormer on HuggingFace as fallback",
         "Unit test for loader fallback logic"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-03T07:04:00.000Z"
     },
     {
       "id": "T2-13",

@@ -8,6 +8,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from harmony_trainer.model_loaders.bs_roformer import (
+    ENV_VAR as BS_ROFORMER_ENV_VAR,
+)
+from harmony_trainer.model_loaders.bs_roformer import (
+    CheckpointNotFoundError as BSRoformerCheckpointNotFoundError,
+)
+from harmony_trainer.model_loaders.bs_roformer import (
+    get_bs_roformer_checkpoint_path,
+    load_bs_roformer_model,
+)
 from harmony_trainer.model_loaders.medleyvox import (
     ENV_VAR,
     CheckpointNotFoundError,
@@ -183,3 +193,164 @@ class TestLoadMedleyvoxModel:
 
         result = load_medleyvox_model()
         assert isinstance(result, MedleyVoxNet)
+
+
+class TestGetBsRoformerCheckpointPath:
+    """Tests for get_bs_roformer_checkpoint_path fallback hierarchy."""
+
+    def test_env_var_override_valid_path(self, tmp_path: Path) -> None:
+        """Environment variable takes precedence when path exists."""
+        checkpoint = tmp_path / "custom_checkpoint.ckpt"
+        checkpoint.write_bytes(b"fake checkpoint")
+
+        with patch.dict(os.environ, {BS_ROFORMER_ENV_VAR: str(checkpoint)}):
+            result = get_bs_roformer_checkpoint_path()
+            assert result == checkpoint
+
+    def test_env_var_override_invalid_path(self) -> None:
+        """Raises error when env var path doesn't exist."""
+        with (
+            patch.dict(os.environ, {BS_ROFORMER_ENV_VAR: "/nonexistent/path.ckpt"}),
+            pytest.raises(BSRoformerCheckpointNotFoundError, match="does not exist"),
+        ):
+            get_bs_roformer_checkpoint_path()
+
+    def test_local_path_fallback(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Falls back to local project path when env var not set."""
+        local_checkpoint = tmp_path / "models" / "bs_roformer" / "bs_roformer_anvuew_sdr_12.45.ckpt"
+        local_checkpoint.parent.mkdir(parents=True)
+        local_checkpoint.write_bytes(b"fake checkpoint")
+
+        monkeypatch.setattr(
+            "harmony_trainer.model_loaders.bs_roformer.LOCAL_PATH",
+            local_checkpoint,
+        )
+
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop(BS_ROFORMER_ENV_VAR, None)
+            result = get_bs_roformer_checkpoint_path()
+            assert result == local_checkpoint
+
+    def test_hf_hub_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Falls back to hf_hub_download when local paths unavailable."""
+        monkeypatch.setattr(
+            "harmony_trainer.model_loaders.bs_roformer.LOCAL_PATH",
+            Path("/nonexistent/local/path.ckpt"),
+        )
+
+        mock_download = MagicMock(return_value="/cached/path/bs_roformer_anvuew_sdr_12.45.ckpt")
+
+        fake_hf_hub = ModuleType("huggingface_hub")
+        fake_hf_hub.hf_hub_download = mock_download  # type: ignore[attr-defined]
+
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop(BS_ROFORMER_ENV_VAR, None)
+            with patch.dict(sys.modules, {"huggingface_hub": fake_hf_hub}):
+                result = get_bs_roformer_checkpoint_path()
+                assert result == Path("/cached/path/bs_roformer_anvuew_sdr_12.45.ckpt")
+                mock_download.assert_called_once_with(
+                    repo_id="anvuew/BS-RoFormer",
+                    filename="bs_roformer_anvuew_sdr_12.45.ckpt",
+                    revision="main",
+                )
+
+    def test_hf_hub_download_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Raises CheckpointNotFoundError when HF download fails."""
+        monkeypatch.setattr(
+            "harmony_trainer.model_loaders.bs_roformer.LOCAL_PATH",
+            Path("/nonexistent/local/path.ckpt"),
+        )
+
+        mock_download = MagicMock(side_effect=Exception("Network error"))
+
+        fake_hf_hub = ModuleType("huggingface_hub")
+        fake_hf_hub.hf_hub_download = mock_download  # type: ignore[attr-defined]
+
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop(BS_ROFORMER_ENV_VAR, None)
+            with (
+                patch.dict(sys.modules, {"huggingface_hub": fake_hf_hub}),
+                pytest.raises(BSRoformerCheckpointNotFoundError, match="Failed to download"),
+            ):
+                get_bs_roformer_checkpoint_path()
+
+
+class TestLoadBsRoformerModel:
+    """Tests for load_bs_roformer_model function."""
+
+    def test_load_with_state_dict_key(self, tmp_path: Path) -> None:
+        """Loads model from checkpoint with 'state_dict' key."""
+        import torch
+
+        from harmony_trainer.models.bs_roformer import BSRoformerNet
+
+        model = BSRoformerNet()
+        checkpoint = tmp_path / "checkpoint.ckpt"
+        torch.save({"state_dict": model.state_dict()}, checkpoint)
+
+        result = load_bs_roformer_model(checkpoint)
+        assert isinstance(result, BSRoformerNet)
+
+    def test_load_with_model_key(self, tmp_path: Path) -> None:
+        """Loads model from checkpoint with 'model' key."""
+        import torch
+
+        from harmony_trainer.models.bs_roformer import BSRoformerNet
+
+        model = BSRoformerNet()
+        checkpoint = tmp_path / "checkpoint.ckpt"
+        torch.save({"model": model.state_dict()}, checkpoint)
+
+        result = load_bs_roformer_model(checkpoint)
+        assert isinstance(result, BSRoformerNet)
+
+    def test_load_raw_state_dict(self, tmp_path: Path) -> None:
+        """Loads model from raw state_dict without wrapper."""
+        import torch
+
+        from harmony_trainer.models.bs_roformer import BSRoformerNet
+
+        model = BSRoformerNet()
+        checkpoint = tmp_path / "checkpoint.ckpt"
+        torch.save(model.state_dict(), checkpoint)
+
+        result = load_bs_roformer_model(checkpoint)
+        assert isinstance(result, BSRoformerNet)
+
+    def test_load_nonexistent_path(self) -> None:
+        """Raises error for nonexistent checkpoint."""
+        with pytest.raises(BSRoformerCheckpointNotFoundError):
+            load_bs_roformer_model(Path("/nonexistent/checkpoint.ckpt"))
+
+    def test_load_uses_fallback_when_no_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Uses get_bs_roformer_checkpoint_path when no path provided."""
+        import torch
+
+        from harmony_trainer.models.bs_roformer import BSRoformerNet
+
+        model = BSRoformerNet()
+        checkpoint = tmp_path / "fallback.ckpt"
+        torch.save(model.state_dict(), checkpoint)
+
+        monkeypatch.setattr(
+            "harmony_trainer.model_loaders.bs_roformer.get_bs_roformer_checkpoint_path",
+            lambda: checkpoint,
+        )
+
+        result = load_bs_roformer_model()
+        assert isinstance(result, BSRoformerNet)
+
+    def test_model_in_eval_mode(self, tmp_path: Path) -> None:
+        """Loaded model is in eval mode."""
+        import torch
+
+        from harmony_trainer.models.bs_roformer import BSRoformerNet
+
+        model = BSRoformerNet()
+        checkpoint = tmp_path / "checkpoint.ckpt"
+        torch.save(model.state_dict(), checkpoint)
+
+        result = load_bs_roformer_model(checkpoint)
+        assert not result.training
