@@ -491,17 +491,16 @@ class BSRoformerNet(nn.Module):
         # Reshape to (batch, num_stems, channels, freq, time, 2) for real/imag
         masks = rearrange(masks, "b s f t (c ri) -> b s c f t ri", c=channels, ri=2)
 
-        # Apply masks to STFT
-        # stft_out: (batch, channels, freq, time) -> (batch, 1, channels, freq, time, 1)
-        stft_expanded = stft_out.unsqueeze(1).unsqueeze(-1)
-        stft_real = stft_expanded.real
-        stft_imag = stft_expanded.imag
+        # Apply masks to STFT using element-wise multiplication (not complex multiplication)
+        # stft_out: (batch, channels, freq, time) -> expand for stems
+        stft_real = stft_out.real.unsqueeze(1)  # (batch, 1, channels, freq, time)
+        stft_imag = stft_out.imag.unsqueeze(1)  # (batch, 1, channels, freq, time)
 
-        # Complex multiplication for masking
-        mask_real = masks[..., 0]
-        mask_imag = masks[..., 1]
-        out_real = stft_real.squeeze(-1) * mask_real - stft_imag.squeeze(-1) * mask_imag
-        out_imag = stft_real.squeeze(-1) * mask_imag + stft_imag.squeeze(-1) * mask_real
+        # Element-wise mask application per ADR-0008
+        mask_real = masks[..., 0]  # (batch, num_stems, channels, freq, time)
+        mask_imag = masks[..., 1]  # (batch, num_stems, channels, freq, time)
+        out_real = stft_real * mask_real
+        out_imag = stft_imag * mask_imag
 
         # Reconstruct complex STFT
         out_stft = torch.complex(out_real, out_imag)

@@ -255,7 +255,8 @@
         "Update forward pass to handle num_stems mask estimators properly",
         "Remove hardcoded stems=2 rearrange"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-03T13:08:00.000Z"
     },
     {
       "id": "T2-18",
