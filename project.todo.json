@@ -220,6 +220,66 @@
       "completed_at": "2025-12-03T10:02:00.000Z"
     },
     {
+      "id": "T2-15",
+      "desc": "Fix MLP class structure to match ZFTurbo state_dict keys",
+      "deps": ["T2-14"],
+      "dod": [
+        "Change MLP from nn.Sequential subclass to nn.Module with self.net attribute",
+        "Remove extra nn.Sequential wrapper that breaks key names",
+        "Keys should be to_freqs.N.net.0.weight not to_freqs.N.0.0.weight",
+        "Verify load_state_dict(strict=True) succeeds with anvuew checkpoint"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-16",
+      "desc": "Fix MaskEstimator output dimension to match ZFTurbo",
+      "deps": ["T2-15"],
+      "dod": [
+        "Change complex_out from audio_channels*2*2 to audio_channels*2",
+        "Remove stem packing from MaskEstimator output",
+        "Update MaskEstimator constructor signature to match ZFTurbo",
+        "Verify output tensor shape matches ZFTurbo: (batch, freq, time, audio_channels*2)"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-17",
+      "desc": "Fix mask application math to use element-wise instead of complex multiplication",
+      "deps": ["T2-16"],
+      "dod": [
+        "Replace complex multiplication with element-wise: out_real = stft_real * mask_real",
+        "Remove cross-terms: out_imag = stft_imag * mask_imag (not stft_real * mask_imag)",
+        "Update forward pass to handle num_stems mask estimators properly",
+        "Remove hardcoded stems=2 rearrange"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-18",
+      "desc": "Fix BS-RoFormer default dim and verify config alignment",
+      "deps": ["T2-17"],
+      "dod": [
+        "Verify dim value from anvuew/BS-RoFormer config.yaml",
+        "Update DEFAULT_DIM to match actual checkpoint config",
+        "Fix docstring to be consistent with code defaults",
+        "Verify all hyperparameter defaults match anvuew config"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "T2-19",
+      "desc": "Add BS-RoFormer integration test with real checkpoint",
+      "deps": ["T2-18"],
+      "dod": [
+        "Integration test loads real anvuew checkpoint",
+        "Test runs forward pass on sample audio",
+        "Test verifies output shape and non-NaN values",
+        "Test marked as slow/integration (skipped in CI without weights)"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "T2-05",
       "desc": "Implement target generation pipeline",
       "deps": ["T2-04", "T2-09"],
