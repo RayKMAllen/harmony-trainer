@@ -152,24 +152,67 @@ class TestMedleyVoxWrapper:
         wrapper = MedleyVoxWrapper(checkpoint_path=checkpoint)
         assert wrapper._checkpoint_path == checkpoint
 
-    def test_separate_raises_separation_error(self, sample_audio: Path, output_dir: Path) -> None:
-        """Test that separation raises SeparationError on failure (model not available)."""
-        wrapper = MedleyVoxWrapper()
-        with pytest.raises(SeparationError):
+    def test_separate_raises_separation_error_when_checkpoint_missing(
+        self, sample_audio: Path, output_dir: Path, tmp_path: Path
+    ) -> None:
+        """Test that separation raises SeparationError when checkpoint doesn't exist."""
+        fake_checkpoint = tmp_path / "nonexistent.pth"
+        wrapper = MedleyVoxWrapper(checkpoint_path=fake_checkpoint)
+        with pytest.raises(SeparationError, match="Checkpoint not found"):
             wrapper.separate(sample_audio, output_dir)
+
+    @pytest.mark.slow
+    def test_separate_creates_output_files(self, sample_audio: Path, output_dir: Path) -> None:
+        """Test that separation creates lead and backing files when model available."""
+        wrapper = MedleyVoxWrapper()
+        lead_path, backing_path = wrapper.separate(sample_audio, output_dir)
+
+        assert lead_path.exists()
+        assert backing_path.exists()
+        assert lead_path.name == "lead.wav"
+        assert backing_path.name == "backing.wav"
 
 
 class TestSeparateVocalsMedleyVox:
-    def test_separate_vocals_raises_separation_error(
-        self, sample_audio: Path, tmp_path: Path
+    def test_separate_vocals_raises_separation_error_when_checkpoint_missing(
+        self, sample_audio: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test the convenience function raises SeparationError on failure."""
+        """Test the convenience function raises SeparationError when checkpoint missing."""
         song_id = uuid4()
         data_dir = tmp_path / "data"
         data_dir.mkdir()
 
+        # Mock get_medleyvox_checkpoint_path to raise CheckpointNotFoundError
+        from harmony_trainer.model_loaders.medleyvox import CheckpointNotFoundError
+
+        def mock_get_path() -> Path:
+            raise CheckpointNotFoundError("No checkpoint available")
+
+        # Patch in the separation module where it's imported
+        monkeypatch.setattr(
+            "harmony_trainer.separation.medleyvox.get_medleyvox_checkpoint_path",
+            mock_get_path,
+        )
+
         with pytest.raises(SeparationError):
             separate_vocals_medleyvox(sample_audio, song_id, data_dir=data_dir)
+
+    @pytest.mark.slow
+    def test_separate_vocals_creates_output_files(self, sample_audio: Path, tmp_path: Path) -> None:
+        """Test the convenience function creates files when model available."""
+        song_id = uuid4()
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        lead_path, backing_path = separate_vocals_medleyvox(
+            sample_audio, song_id, data_dir=data_dir
+        )
+
+        expected_dir = data_dir / "stems" / str(song_id)
+        assert lead_path.parent == expected_dir
+        assert backing_path.parent == expected_dir
+        assert lead_path.exists()
+        assert backing_path.exists()
 
 
 class TestSeparationError:

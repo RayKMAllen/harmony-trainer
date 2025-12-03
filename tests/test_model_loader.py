@@ -105,38 +105,59 @@ class TestGetMedleyvoxCheckpointPath:
 class TestLoadMedleyvoxModel:
     """Tests for load_medleyvox_model function."""
 
-    def test_load_with_model_key(self, tmp_path: Path) -> None:
-        """Extracts state_dict from 'model' key."""
+    def test_load_with_online_model_format(self, tmp_path: Path) -> None:
+        """Loads model from checkpoint with online_model.module. prefix."""
         import torch
 
+        from harmony_trainer.models.medleyvox import MedleyVoxNet
+
+        # Create a valid checkpoint with the expected format
+        model = MedleyVoxNet()
+        state_dict = {f"online_model.module.{k}": v for k, v in model.state_dict().items()}
         checkpoint = tmp_path / "checkpoint.pth"
-        state_dict = {"layer1.weight": torch.zeros(10)}
-        torch.save({"model": state_dict}, checkpoint)
-
-        result = load_medleyvox_model(checkpoint)
-        assert "layer1.weight" in result
-
-    def test_load_with_state_dict_key(self, tmp_path: Path) -> None:
-        """Extracts state_dict from 'state_dict' key."""
-        import torch
-
-        checkpoint = tmp_path / "checkpoint.pth"
-        state_dict = {"layer1.weight": torch.zeros(10)}
-        torch.save({"state_dict": state_dict}, checkpoint)
-
-        result = load_medleyvox_model(checkpoint)
-        assert "layer1.weight" in result
-
-    def test_load_raw_dict(self, tmp_path: Path) -> None:
-        """Handles raw state_dict without wrapper."""
-        import torch
-
-        checkpoint = tmp_path / "checkpoint.pth"
-        state_dict = {"layer1.weight": torch.zeros(10)}
         torch.save(state_dict, checkpoint)
 
         result = load_medleyvox_model(checkpoint)
-        assert "layer1.weight" in result
+        assert isinstance(result, MedleyVoxNet)
+
+    def test_load_with_model_key(self, tmp_path: Path) -> None:
+        """Loads model from checkpoint with 'model' key."""
+        import torch
+
+        from harmony_trainer.models.medleyvox import MedleyVoxNet
+
+        model = MedleyVoxNet()
+        checkpoint = tmp_path / "checkpoint.pth"
+        torch.save({"model": model.state_dict()}, checkpoint)
+
+        result = load_medleyvox_model(checkpoint)
+        assert isinstance(result, MedleyVoxNet)
+
+    def test_load_with_state_dict_key(self, tmp_path: Path) -> None:
+        """Loads model from checkpoint with 'state_dict' key."""
+        import torch
+
+        from harmony_trainer.models.medleyvox import MedleyVoxNet
+
+        model = MedleyVoxNet()
+        checkpoint = tmp_path / "checkpoint.pth"
+        torch.save({"state_dict": model.state_dict()}, checkpoint)
+
+        result = load_medleyvox_model(checkpoint)
+        assert isinstance(result, MedleyVoxNet)
+
+    def test_load_raw_state_dict(self, tmp_path: Path) -> None:
+        """Loads model from raw state_dict without wrapper."""
+        import torch
+
+        from harmony_trainer.models.medleyvox import MedleyVoxNet
+
+        model = MedleyVoxNet()
+        checkpoint = tmp_path / "checkpoint.pth"
+        torch.save(model.state_dict(), checkpoint)
+
+        result = load_medleyvox_model(checkpoint)
+        assert isinstance(result, MedleyVoxNet)
 
     def test_load_nonexistent_path(self) -> None:
         """Raises error for nonexistent checkpoint."""
@@ -149,8 +170,11 @@ class TestLoadMedleyvoxModel:
         """Uses get_medleyvox_checkpoint_path when no path provided."""
         import torch
 
+        from harmony_trainer.models.medleyvox import MedleyVoxNet
+
+        model = MedleyVoxNet()
         checkpoint = tmp_path / "fallback.pth"
-        torch.save({"layer": torch.zeros(5)}, checkpoint)
+        torch.save(model.state_dict(), checkpoint)
 
         monkeypatch.setattr(
             "harmony_trainer.model_loaders.medleyvox.get_medleyvox_checkpoint_path",
@@ -158,4 +182,4 @@ class TestLoadMedleyvoxModel:
         )
 
         result = load_medleyvox_model()
-        assert "layer" in result
+        assert isinstance(result, MedleyVoxNet)

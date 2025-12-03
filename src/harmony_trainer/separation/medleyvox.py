@@ -1,7 +1,6 @@
 """MedleyVox wrapper for lead/backing vocal separation."""
 
 from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 import torch
@@ -13,6 +12,7 @@ from harmony_trainer.model_loaders.medleyvox import (
     get_medleyvox_checkpoint_path,
     load_medleyvox_model,
 )
+from harmony_trainer.models.medleyvox import MedleyVoxNet
 from harmony_trainer.separation.svoice import SeparationError
 
 
@@ -34,7 +34,7 @@ class MedleyVoxWrapper:
                 If None, uses the loader subsystem with fallback hierarchy.
         """
         self._checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
-        self._model: dict[str, Any] | None = None
+        self._model: MedleyVoxNet | None = None
 
     @property
     def checkpoint_path(self) -> Path:
@@ -49,7 +49,7 @@ class MedleyVoxWrapper:
         return self._checkpoint_path
 
     @property
-    def model(self) -> dict[str, Any]:
+    def model(self) -> MedleyVoxNet:
         if self._model is None:
             try:
                 self._model = load_medleyvox_model(self.checkpoint_path)
@@ -76,28 +76,34 @@ class MedleyVoxWrapper:
     ) -> tuple[Path, Path]:
         """Internal separation logic."""
         # Load model (this will raise if checkpoint not found)
-        _ = self.model
+        model = self.model
 
         # Load audio
         waveform, sample_rate = load_audio(vocals_path)
 
-        # MedleyVox typically expects 44.1kHz stereo input
+        # MedleyVox expects 44.1kHz mono input
         target_sr = 44100
         if sample_rate != target_sr:
             resampler = torchaudio.transforms.Resample(sample_rate, target_sr)
             waveform = resampler(waveform)
 
-        # Convert mono to stereo if needed
-        if waveform.shape[0] == 1:
-            waveform = waveform.repeat(2, 1)
+        # Convert stereo to mono if needed (MedleyVoxNet expects mono)
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
 
-        # MedleyVox model inference would go here
-        # Since we don't have the actual model class, we simulate the interface
-        # The actual implementation would use the MedleyVox model architecture
-        raise SeparationError(
-            "MedleyVox model inference not implemented. "
-            "Requires MedleyVox model class from https://github.com/jeonchangbin49/MedleyVox"
-        )
+        # Add batch dimension: (1, samples)
+        input_tensor = waveform.squeeze(0).unsqueeze(0)
+
+        # Run inference
+        with torch.no_grad():
+            # Output shape: (batch, num_sources, samples)
+            output = model(input_tensor)
+
+        # Extract lead (source 0) and backing (source 1)
+        lead = output[0, 0, :].unsqueeze(0)  # (1, samples)
+        backing = output[0, 1, :].unsqueeze(0)  # (1, samples)
+
+        return self._save_outputs(lead, backing, output_dir, target_sr)
 
     def _save_outputs(
         self,

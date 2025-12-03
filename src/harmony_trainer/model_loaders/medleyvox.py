@@ -2,9 +2,10 @@
 
 import os
 from pathlib import Path
-from typing import Any
 
 import torch
+
+from harmony_trainer.models.medleyvox import MedleyVoxNet, extract_online_model_state_dict
 
 # Canonical source configuration
 HF_REPO_ID = "Cyru5/MedleyVox"
@@ -60,14 +61,14 @@ def get_medleyvox_checkpoint_path() -> Path:
         ) from e
 
 
-def load_medleyvox_model(checkpoint_path: Path | None = None) -> dict[str, Any]:
-    """Load MedleyVox model state dict from checkpoint.
+def load_medleyvox_model(checkpoint_path: Path | None = None) -> MedleyVoxNet:
+    """Load MedleyVox model from checkpoint.
 
     Args:
         checkpoint_path: Optional explicit path. If None, uses get_medleyvox_checkpoint_path().
 
     Returns:
-        Model state dict.
+        Instantiated MedleyVoxNet model with loaded weights.
 
     Raises:
         CheckpointNotFoundError: If checkpoint cannot be found.
@@ -86,9 +87,20 @@ def load_medleyvox_model(checkpoint_path: Path | None = None) -> dict[str, Any]:
 
     # Extract state_dict from various checkpoint formats
     if isinstance(pkg, dict):
-        if "model" in pkg:
-            return pkg["model"]  # type: ignore[no-any-return]
-        if "state_dict" in pkg:
-            return pkg["state_dict"]  # type: ignore[no-any-return]
-        return pkg
-    return {"model": pkg}
+        state_dict = extract_online_model_state_dict(pkg)
+        if not state_dict:
+            # Fallback to other formats
+            if "model" in pkg:
+                state_dict = pkg["model"]
+            elif "state_dict" in pkg:
+                state_dict = pkg["state_dict"]
+            else:
+                state_dict = pkg
+    else:
+        raise RuntimeError("Unexpected checkpoint format")
+
+    # Instantiate model and load weights
+    model = MedleyVoxNet()
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
