@@ -172,7 +172,8 @@
         "Inference-only: no training code",
         "Basic smoke test constructs model and runs forward pass on synthetic tensor"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2025-12-03T06:47:00.000Z"
     },
     {
       "id": "T2-12",
