@@ -236,7 +236,7 @@ class BSRoformerNet(nn.Module):
     - dim: 256
     - depth: 12
     - stereo: True
-    - num_stems: 1
+    - num_stems: 2
     - time_transformer_depth: 1
     - freq_transformer_depth: 1
     - n_fft: 2048
@@ -249,7 +249,7 @@ class BSRoformerNet(nn.Module):
     DEFAULT_DIM = 256
     DEFAULT_DEPTH = 12
     DEFAULT_STEREO = True
-    DEFAULT_NUM_STEMS = 1
+    DEFAULT_NUM_STEMS = 2
     DEFAULT_TIME_TRANSFORMER_DEPTH = 1
     DEFAULT_FREQ_TRANSFORMER_DEPTH = 1
     DEFAULT_HEADS = 8
@@ -415,18 +415,17 @@ class BSRoformerNet(nn.Module):
 
         self.final_norm = RMSNorm(dim)
 
-        # Mask estimator for each stem
-        # Output: freq * (audio_channels * 2 for real/imag)
-        # ZFTurbo uses num_stems separate mask estimators, each outputting one stem's mask
+        # Single mask estimator that outputs all stems packed together
+        # Output: freq * (audio_channels * 2 * num_stems) for real/imag per stem
+        # This matches the anvuew/ZFTurbo checkpoint format
         self.mask_estimators = nn.ModuleList(
             [
                 MaskEstimator(
                     dim=dim,
                     dim_outputs=freqs_per_band,
                     mlp_expansion=mlp_expansion,
-                    complex_out=self.audio_channels * 2,
+                    complex_out=self.audio_channels * 2 * num_stems,
                 )
-                for _ in range(num_stems)
             ]
         )
 
@@ -478,18 +477,15 @@ class BSRoformerNet(nn.Module):
 
         x = self.final_norm(x)
 
-        # Estimate masks for each stem
-        # Each mask_estimator outputs (batch, freq, time, audio_channels * 2)
-        mask_list: list[torch.Tensor] = []
-        for mask_estimator in self.mask_estimators:
-            mask = mask_estimator(x)
-            mask_list.append(mask)
-
-        # Stack masks: (batch, num_stems, freq, time, audio_channels * 2)
-        masks = torch.stack(mask_list, dim=1)
+        # Single mask estimator outputs all stems packed together
+        # Output: (batch, freq, time, audio_channels * 2 * num_stems)
+        masks = self.mask_estimators[0](x)
 
         # Reshape to (batch, num_stems, channels, freq, time, 2) for real/imag
-        masks = rearrange(masks, "b s f t (c ri) -> b s c f t ri", c=channels, ri=2)
+        # Unpack: (batch, freq, time, num_stems * channels * 2) -> (batch, num_stems, channels, freq, time, 2)
+        masks = rearrange(
+            masks, "b f t (s c ri) -> b s c f t ri", s=self.num_stems, c=channels, ri=2
+        )
 
         # Apply masks to STFT using element-wise multiplication (not complex multiplication)
         # stft_out: (batch, channels, freq, time) -> expand for stems

@@ -1,6 +1,7 @@
 """BS-RoFormer model weight loader per ADR-0006."""
 
 import os
+import re
 from pathlib import Path
 
 import torch
@@ -61,6 +62,21 @@ def get_bs_roformer_checkpoint_path() -> Path:
         ) from e
 
 
+def _remap_checkpoint_keys(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """Remap checkpoint keys from anvuew format to our model format.
+
+    anvuew checkpoint uses: mask_estimators.0.to_freqs.N.0.M.weight
+    Our model expects:      mask_estimators.0.to_freqs.N.net.M.weight
+    """
+    remapped = {}
+    # Pattern: to_freqs.N.0.M -> to_freqs.N.net.M
+    pattern = re.compile(r"(to_freqs\.\d+)\.0\.(\d+)")
+    for key, value in state_dict.items():
+        new_key = pattern.sub(r"\1.net.\2", key)
+        remapped[new_key] = value
+    return remapped
+
+
 def load_bs_roformer_model(checkpoint_path: Path | None = None) -> BSRoformerNet:
     """Load BS-RoFormer model from checkpoint.
 
@@ -95,6 +111,10 @@ def load_bs_roformer_model(checkpoint_path: Path | None = None) -> BSRoformerNet
             state_dict = pkg
     else:
         raise RuntimeError("Unexpected checkpoint format")
+
+    # Remap keys from anvuew checkpoint format to our model format
+    # anvuew: mask_estimators.0.to_freqs.N.0.M.weight -> ours: mask_estimators.0.to_freqs.N.net.M.weight
+    state_dict = _remap_checkpoint_keys(state_dict)
 
     # Instantiate model and load weights
     model = BSRoformerNet()

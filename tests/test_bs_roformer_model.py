@@ -12,7 +12,7 @@ class TestBSRoformerNet:
         """Model can be constructed with default hyperparameters."""
         model = BSRoformerNet()
         assert isinstance(model, torch.nn.Module)
-        assert model.num_stems == 1
+        assert model.num_stems == 2  # anvuew checkpoint uses 2 stems
         assert model.n_fft == 2048
         assert model.hop_length == 512
         assert model.sample_rate == 44100
@@ -27,16 +27,16 @@ class TestBSRoformerNet:
         with torch.no_grad():
             y = model(x)
         # Output: (batch, num_stems, channels, samples)
-        assert y.shape == (1, model.num_stems, 2, 44100)
+        assert y.shape == (1, 2, 2, 44100)
 
     def test_forward_pass_mono(self) -> None:
         """Forward pass works with mono (batch, 1, samples) input."""
-        model = BSRoformerNet(stereo=False)
+        model = BSRoformerNet(stereo=False, num_stems=2)
         model.eval()
         x = torch.randn(1, 1, 44100)
         with torch.no_grad():
             y = model(x)
-        assert y.shape == (1, model.num_stems, 1, 44100)
+        assert y.shape == (1, 2, 1, 44100)
 
     def test_forward_pass_batch(self) -> None:
         """Forward pass works with batch size > 1."""
@@ -45,7 +45,7 @@ class TestBSRoformerNet:
         x = torch.randn(2, 2, 44100)
         with torch.no_grad():
             y = model(x)
-        assert y.shape == (2, model.num_stems, 2, 44100)
+        assert y.shape == (2, 2, 2, 44100)
 
     def test_model_imports_without_gpu(self) -> None:
         """Model can be imported and used on CPU."""
@@ -76,11 +76,11 @@ class TestBSRoformerNet:
             ), f"Key {key} has wrong nested structure"
 
     def test_mask_estimator_output_dimension_matches_zfturbo(self) -> None:
-        """MaskEstimator complex_out = audio_channels * 2 (not * 4)."""
+        """MaskEstimator complex_out = audio_channels * 2 * num_stems."""
         model = BSRoformerNet()
-        # Each mask estimator should output audio_channels * 2 (real/imag per channel)
-        # For stereo: 2 * 2 = 4, NOT 2 * 2 * 2 = 8
-        expected_complex_out = model.audio_channels * 2
+        # Single mask estimator outputs all stems packed together
+        # For stereo with 2 stems: 2 * 2 * 2 = 8
+        expected_complex_out = model.audio_channels * 2 * model.num_stems
         for mask_est in model.mask_estimators:
             assert (
                 mask_est.complex_out == expected_complex_out
