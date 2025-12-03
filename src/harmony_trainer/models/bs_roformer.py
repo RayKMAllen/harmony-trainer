@@ -80,6 +80,7 @@ class Attention(nn.Module):
 
         self.norm = RMSNorm(dim)
         self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
+        self.to_gates = nn.Linear(dim, heads)
         self.to_out = nn.Sequential(nn.Linear(inner_dim, dim, bias=False), nn.Dropout(dropout))
 
         self.flash = flash
@@ -100,6 +101,12 @@ class Attention(nn.Module):
             attn = self.attend(dots)
             attn = self.dropout(attn)
             out = torch.matmul(attn, v)
+
+        # Gate heads
+        gates = self.to_gates(x)
+        gates = rearrange(gates, "b n h -> b h n 1")
+        gates = gates.sigmoid()
+        out = out * gates
 
         out = rearrange(out, "b h n d -> b n (h d)")
         result: torch.Tensor = self.to_out(out)
@@ -158,7 +165,13 @@ class BandSplit(nn.Module):
         self.complex_as_channel = complex_as_channel
         # Input features: freq_bins * complex_as_channel (real/imag per channel)
         self.to_features = nn.ModuleList(
-            [nn.Linear(dim_in * complex_as_channel, dim) for dim_in in dim_inputs]
+            [
+                nn.Sequential(
+                    RMSNorm(dim_in * complex_as_channel),
+                    nn.Linear(dim_in * complex_as_channel, dim),
+                )
+                for dim_in in dim_inputs
+            ]
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -171,21 +184,21 @@ class BandSplit(nn.Module):
         return torch.stack(outs, dim=-2)
 
 
-class MLP(nn.Module):
-    """Simple MLP for mask estimation."""
+class MLP(nn.Sequential):
+    """Simple MLP for mask estimation.
+
+    Nested in Sequential to match checkpoint structure (to_freqs.0.0.0.weight).
+    """
 
     def __init__(self, dim_in: int, dim_out: int, dim_hidden: int | None = None):
-        super().__init__()
         hidden = dim_hidden or dim_in
-        self.net = nn.Sequential(
-            nn.Linear(dim_in, hidden),
-            nn.Tanh(),
-            nn.Linear(hidden, dim_out),
+        super().__init__(
+            nn.Sequential(
+                nn.Linear(dim_in, hidden),
+                nn.Tanh(),
+                nn.Linear(hidden, dim_out),
+            )
         )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        result: torch.Tensor = self.net(x)
-        return result
 
 
 class MaskEstimator(nn.Module):
@@ -197,7 +210,7 @@ class MaskEstimator(nn.Module):
         super().__init__()
         self.dim_outputs = dim_outputs
         self.complex_out = complex_out
-        self.to_masks = nn.ModuleList(
+        self.to_freqs = nn.ModuleList(
             [MLP(dim, dim_out * complex_out, dim * mlp_expansion) for dim_out in dim_outputs]
         )
 
@@ -205,7 +218,7 @@ class MaskEstimator(nn.Module):
         # x: (batch, time, bands, dim)
         bands = x.unbind(dim=-2)
         outs = []
-        for band_feat, to_mask in zip(bands, self.to_masks, strict=False):
+        for band_feat, to_mask in zip(bands, self.to_freqs, strict=False):
             mask = to_mask(band_feat)
             outs.append(mask)
         # Stack and reshape to (batch, freq, time, complex_out)
@@ -230,7 +243,7 @@ class BSRoformerNet(nn.Module):
     """
 
     # Hardcoded config from anvuew/BS-RoFormer config.yaml
-    DEFAULT_DIM = 384
+    DEFAULT_DIM = 256
     DEFAULT_DEPTH = 12
     DEFAULT_STEREO = True
     DEFAULT_NUM_STEMS = 1
@@ -401,13 +414,15 @@ class BSRoformerNet(nn.Module):
 
         # Mask estimator for each stem
         # Output: freq * (channels * 2 for real/imag)
+        # Checkpoint estimates masks for 2 stems (target + residual) packed in one estimator
+        # So output channels = complex_as_channel * 2
         self.mask_estimators = nn.ModuleList(
             [
                 MaskEstimator(
                     dim=dim,
                     dim_outputs=freqs_per_band,
                     mlp_expansion=mlp_expansion,
-                    complex_out=complex_as_channel,
+                    complex_out=complex_as_channel * 2,
                 )
                 for _ in range(num_stems)
             ]
@@ -467,8 +482,14 @@ class BSRoformerNet(nn.Module):
             mask = mask_estimator(x)
             mask_list.append(mask)
 
-        # Stack masks: (batch, stems, freq, time, channels * 2)
+        # Stack masks: (batch, stems, freq, time, channels * 2 * 2)
+        # The single estimator outputs 2 stems worth of masks
         masks = torch.stack(mask_list, dim=1)
+
+        # Reshape to separate the 2 stems: (batch, 1, freq, time, 2, channels*2)
+        # Then flatten stems: (batch, 2, freq, time, channels*2)
+        masks = rearrange(masks, "b 1 f t (stems c_ri) -> b stems f t c_ri", stems=2)
+
         # Reshape to (batch, stems, channels, freq, time, 2)
         masks = rearrange(masks, "b s f t (c ri) -> b s c f t ri", c=channels, ri=2)
 
@@ -490,7 +511,8 @@ class BSRoformerNet(nn.Module):
         # iSTFT for each stem and channel
         out_stft = rearrange(out_stft, "b s c f t -> (b s c) f t")
         out_audio = self._istft(out_stft, samples)
-        out_audio = out_audio.view(batch, self.num_stems, channels, samples)
+        # Reshape to (batch, 2, channels, samples) since we unpacked 2 stems
+        out_audio = out_audio.view(batch, 2, channels, samples)
 
         return out_audio
 

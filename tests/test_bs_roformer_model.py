@@ -27,7 +27,8 @@ class TestBSRoformerNet:
         with torch.no_grad():
             y = model(x)
         # Output: (batch, stems, channels, samples)
-        assert y.shape == (1, 1, 2, 44100)
+        # Model returns 2 stems (Target + Residual)
+        assert y.shape == (1, 2, 2, 44100)
 
     def test_forward_pass_mono(self) -> None:
         """Forward pass works with mono (batch, 1, samples) input."""
@@ -36,7 +37,7 @@ class TestBSRoformerNet:
         x = torch.randn(1, 1, 44100)
         with torch.no_grad():
             y = model(x)
-        assert y.shape == (1, 1, 1, 44100)
+        assert y.shape == (1, 2, 1, 44100)
 
     def test_forward_pass_batch(self) -> None:
         """Forward pass works with batch size > 1."""
@@ -45,7 +46,7 @@ class TestBSRoformerNet:
         x = torch.randn(2, 2, 44100)
         with torch.no_grad():
             y = model(x)
-        assert y.shape == (2, 1, 2, 44100)
+        assert y.shape == (2, 2, 2, 44100)
 
     def test_model_imports_without_gpu(self) -> None:
         """Model can be imported and used on CPU."""

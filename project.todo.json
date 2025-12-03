@@ -206,6 +206,19 @@
       "completed_at": "2025-12-03T07:26:00.000Z"
     },
     {
+      "id": "T2-14",
+      "desc": "Refactor BS-RoFormer to use chunked inference per ADR-0007",
+      "deps": ["T2-13"],
+      "dod": [
+        "Update BSRoFormerWrapper._do_separate to chunk input audio (default 30s)",
+        "Implement overlap-add reconstruction with linear cross-fade",
+        "Log progress percentage after each chunk",
+        "Unit test verifies reconstruction of known signal",
+        "Verify constant memory usage for large files"
+      ],
+      "status": "todo"
+    },
+    {
       "id": "T2-05",
       "desc": "Implement target generation pipeline",
       "deps": ["T2-04", "T2-09"],

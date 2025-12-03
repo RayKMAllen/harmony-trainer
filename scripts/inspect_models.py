@@ -22,56 +22,67 @@ output_dir = data_dir / "stems" / str(song_id)
 
 # Demucs
 
-from harmony_trainer.separation.demucs import DemucsWrapper
+# from harmony_trainer.separation.demucs import DemucsWrapper
 
-model_name = "htdemucs"
+# model_name = "htdemucs"
 
-wrapper = DemucsWrapper(model_name=model_name)
-vocals_path, instrumental_path = wrapper.separate(audio_path, output_dir)
+# wrapper = DemucsWrapper(model_name=model_name)
+# vocals_path, instrumental_path = wrapper.separate(audio_path, output_dir)
 
 # %%
 
-# MedleyVox
+# # MedleyVox
 
-from harmony_trainer.separation.medleyvox import MedleyVoxWrapper
+# from harmony_trainer.separation.medleyvox import MedleyVoxWrapper
+
+# vocals_path = Path("data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav")
+
+# wrapper = MedleyVoxWrapper()
+# lead_path, backing_path = wrapper.separate(vocals_path, output_dir)
+
+# %%
+
+# BS-RoFormer
+
+from harmony_trainer.separation.bs_roformer import BSRoFormerWrapper
 
 vocals_path = Path("data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav")
 
-wrapper = MedleyVoxWrapper()
+wrapper = BSRoFormerWrapper()
 lead_path, backing_path = wrapper.separate(vocals_path, output_dir)
 
 # %%
 
-# SVoice
+# # SVoice
 
-from harmony_trainer.separation.svoice import SVoiceWrapper
+# from harmony_trainer.separation.svoice import SVoiceWrapper
 
-# vocals_path = Path('data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav')
+# # vocals_path = Path('data/stems/328f1360-bfb1-436b-96fc-208d101fc2fe/vocals_all.wav')
 
-wrapper = SVoiceWrapper()
-lead_path, backing_path = wrapper.separate(vocals_path, output_dir)
+# wrapper = SVoiceWrapper()
+# lead_path, backing_path = wrapper.separate(vocals_path, output_dir)
 
-# %%
+# # %%
 
-# Pitch extraction
+# # Pitch extraction
 
-from harmony_trainer.pitch.extractor import PitchExtractor
+# from harmony_trainer.pitch.extractor import PitchExtractor
 
-song_id = scartissue_uuid
-model = "full"
+# song_id = scartissue_uuid
+# model = "full"
 
-extractor = PitchExtractor(model=model)
-contour = extractor.extract(vocals_path)
+# extractor = PitchExtractor(model=model)
+# contour = extractor.extract(vocals_path)
 
 
-output_dir = data_dir / "analysis" / str(song_id)
-output_dir.mkdir(parents=True, exist_ok=True)
+# output_dir = data_dir / "analysis" / str(song_id)
+# output_dir.mkdir(parents=True, exist_ok=True)
 
-# Save pitch data as npz
-np.savez(
-    output_dir / "pitch.npz",
-    times=contour.times,
-    frequencies=contour.frequencies,
-    confidence=contour.confidence,
-    sample_rate=contour.sample_rate,
-)
+# # Save pitch data as npz
+# np.savez(
+#     output_dir / "pitch.npz",
+#     times=contour.times,
+#     frequencies=contour.frequencies,
+#     confidence=contour.confidence,
+#     sample_rate=contour.sample_rate,
+# )
