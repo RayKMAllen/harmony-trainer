@@ -416,16 +416,15 @@ class BSRoformerNet(nn.Module):
         self.final_norm = RMSNorm(dim)
 
         # Mask estimator for each stem
-        # Output: freq * (channels * 2 for real/imag)
-        # Checkpoint estimates masks for 2 stems (target + residual) packed in one estimator
-        # So output channels = complex_as_channel * 2
+        # Output: freq * (audio_channels * 2 for real/imag)
+        # ZFTurbo uses num_stems separate mask estimators, each outputting one stem's mask
         self.mask_estimators = nn.ModuleList(
             [
                 MaskEstimator(
                     dim=dim,
                     dim_outputs=freqs_per_band,
                     mlp_expansion=mlp_expansion,
-                    complex_out=complex_as_channel * 2,
+                    complex_out=self.audio_channels * 2,
                 )
                 for _ in range(num_stems)
             ]
@@ -480,20 +479,16 @@ class BSRoformerNet(nn.Module):
         x = self.final_norm(x)
 
         # Estimate masks for each stem
+        # Each mask_estimator outputs (batch, freq, time, audio_channels * 2)
         mask_list: list[torch.Tensor] = []
         for mask_estimator in self.mask_estimators:
             mask = mask_estimator(x)
             mask_list.append(mask)
 
-        # Stack masks: (batch, stems, freq, time, channels * 2 * 2)
-        # The single estimator outputs 2 stems worth of masks
+        # Stack masks: (batch, num_stems, freq, time, audio_channels * 2)
         masks = torch.stack(mask_list, dim=1)
 
-        # Reshape to separate the 2 stems: (batch, 1, freq, time, 2, channels*2)
-        # Then flatten stems: (batch, 2, freq, time, channels*2)
-        masks = rearrange(masks, "b 1 f t (stems c_ri) -> b stems f t c_ri", stems=2)
-
-        # Reshape to (batch, stems, channels, freq, time, 2)
+        # Reshape to (batch, num_stems, channels, freq, time, 2) for real/imag
         masks = rearrange(masks, "b s f t (c ri) -> b s c f t ri", c=channels, ri=2)
 
         # Apply masks to STFT
@@ -512,10 +507,11 @@ class BSRoformerNet(nn.Module):
         out_stft = torch.complex(out_real, out_imag)
 
         # iSTFT for each stem and channel
+        num_stems = self.num_stems
         out_stft = rearrange(out_stft, "b s c f t -> (b s c) f t")
         out_audio = self._istft(out_stft, samples)
-        # Reshape to (batch, 2, channels, samples) since we unpacked 2 stems
-        out_audio = out_audio.view(batch, 2, channels, samples)
+        # Reshape to (batch, num_stems, channels, samples)
+        out_audio = out_audio.view(batch, num_stems, channels, samples)
 
         return out_audio
 
