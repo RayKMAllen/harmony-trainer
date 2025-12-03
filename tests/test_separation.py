@@ -8,6 +8,10 @@ import pytest
 import torch
 
 from harmony_trainer.audio_io import load_audio, save_wav
+from harmony_trainer.separation.bs_roformer import (
+    BSRoFormerWrapper,
+    separate_vocals_bs_roformer,
+)
 from harmony_trainer.separation.demucs import DemucsWrapper, separate_audio
 from harmony_trainer.separation.medleyvox import (
     MedleyVoxWrapper,
@@ -283,6 +287,119 @@ class TestSeparateVocalsMedleyVox:
         # Check audio has samples (not empty)
         assert lead_audio.shape[-1] > 0, "lead.wav should have samples"
         assert backing_audio.shape[-1] > 0, "backing.wav should have samples"
+
+
+class TestBSRoFormerWrapper:
+    def test_wrapper_initialization(self) -> None:
+        wrapper = BSRoFormerWrapper()
+        assert wrapper._checkpoint_path is None
+        assert wrapper._model is None
+
+    def test_wrapper_custom_checkpoint(self, tmp_path: Path) -> None:
+        checkpoint = tmp_path / "model.ckpt"
+        wrapper = BSRoFormerWrapper(checkpoint_path=checkpoint)
+        assert wrapper._checkpoint_path == checkpoint
+
+    def test_separate_raises_separation_error_when_checkpoint_missing(
+        self, sample_audio: Path, output_dir: Path, tmp_path: Path
+    ) -> None:
+        """Test that separation raises SeparationError when checkpoint doesn't exist."""
+        fake_checkpoint = tmp_path / "nonexistent.ckpt"
+        wrapper = BSRoFormerWrapper(checkpoint_path=fake_checkpoint)
+        with pytest.raises(SeparationError, match="Checkpoint not found"):
+            wrapper.separate(sample_audio, output_dir)
+
+    def test_separate_with_fake_model(
+        self, sample_audio: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Integration test: verify separation produces valid stems using a fake model."""
+        import torch.nn as nn
+
+        class FakeBSRoformerNet(nn.Module):
+            """Fake model that returns separated source from input."""
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.sample_rate = 44100
+
+            def forward(self, raw_audio: torch.Tensor) -> torch.Tensor:
+                # raw_audio: (batch, channels, samples)
+                batch, channels, samples = raw_audio.shape
+                # Return (batch, stems=1, channels, samples) - scaled input
+                output = raw_audio * 0.7
+                return output.unsqueeze(1)
+
+        def mock_load_model(checkpoint_path: Path | None = None) -> nn.Module:
+            model = FakeBSRoformerNet()
+            model.eval()
+            return model
+
+        # Patch load_bs_roformer_model to return our fake model
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.load_bs_roformer_model",
+            mock_load_model,
+        )
+
+        # Create a fake checkpoint file so the path check passes
+        fake_checkpoint = tmp_path / "fake_checkpoint.ckpt"
+        fake_checkpoint.write_bytes(b"fake")
+
+        # Patch get_bs_roformer_checkpoint_path to return the fake path
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.get_bs_roformer_checkpoint_path",
+            lambda: fake_checkpoint,
+        )
+
+        song_id = uuid4()
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        lead_path, backing_path = separate_vocals_bs_roformer(
+            sample_audio, song_id, data_dir=data_dir
+        )
+
+        # Verify output files exist
+        assert lead_path.exists(), "lead.wav should exist"
+        assert backing_path.exists(), "backing.wav should exist"
+        assert lead_path.name == "lead.wav"
+        assert backing_path.name == "backing.wav"
+
+        # Verify output files are valid audio
+        lead_audio, lead_sr = load_audio(lead_path)
+        backing_audio, backing_sr = load_audio(backing_path)
+
+        # Check sample rates match expected (44100 Hz for BS-RoFormer)
+        assert lead_sr == 44100, f"Expected 44100 Hz, got {lead_sr}"
+        assert backing_sr == 44100, f"Expected 44100 Hz, got {backing_sr}"
+
+        # Check audio has samples (not empty)
+        assert lead_audio.shape[-1] > 0, "lead.wav should have samples"
+        assert backing_audio.shape[-1] > 0, "backing.wav should have samples"
+
+
+class TestSeparateVocalsBSRoFormer:
+    def test_separate_vocals_raises_separation_error_when_checkpoint_missing(
+        self, sample_audio: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test the convenience function raises SeparationError when checkpoint missing."""
+        song_id = uuid4()
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        # Mock get_bs_roformer_checkpoint_path to raise CheckpointNotFoundError
+        from harmony_trainer.model_loaders.bs_roformer import CheckpointNotFoundError
+
+        def mock_get_path() -> Path:
+            raise CheckpointNotFoundError("No checkpoint available")
+
+        # Patch in the separation module where it's imported
+        monkeypatch.setattr(
+            "harmony_trainer.separation.bs_roformer.get_bs_roformer_checkpoint_path",
+            mock_get_path,
+        )
+
+        with pytest.raises(SeparationError):
+            separate_vocals_bs_roformer(sample_audio, song_id, data_dir=data_dir)
 
 
 class TestSeparationError:
