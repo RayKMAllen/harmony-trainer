@@ -233,7 +233,7 @@ class BSRoformerNet(nn.Module):
     """Band-Split RoFormer for music source separation.
 
     Default hyperparameters match the anvuew/BS-RoFormer checkpoint config.yaml:
-    - dim: 384
+    - dim: 256
     - depth: 12
     - stereo: True
     - num_stems: 1
