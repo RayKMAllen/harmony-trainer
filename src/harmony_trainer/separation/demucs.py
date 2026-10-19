@@ -8,7 +8,7 @@ import torch
 import torchaudio  # type: ignore[import-untyped]
 
 from harmony_trainer.audio_io import load_audio, save_wav
-from harmony_trainer.separation.svoice import SeparationError
+from harmony_trainer.separation.errors import SeparationError
 
 if TYPE_CHECKING:
     from demucs.htdemucs import HTDemucs

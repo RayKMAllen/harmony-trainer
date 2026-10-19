@@ -17,11 +17,7 @@ from harmony_trainer.separation.medleyvox import (
     MedleyVoxWrapper,
     separate_vocals_medleyvox,
 )
-from harmony_trainer.separation.svoice import (
-    SeparationError,
-    SVoiceWrapper,
-    separate_vocals,
-)
+from harmony_trainer.separation.errors import SeparationError
 
 
 @pytest.fixture
@@ -99,50 +95,6 @@ class TestSeparateAudio:
         assert instrumental_path.parent == expected_dir
         assert vocals_path.exists()
         assert instrumental_path.exists()
-
-
-class TestSVoiceWrapper:
-    def test_wrapper_initialization(self) -> None:
-        wrapper = SVoiceWrapper()
-        assert wrapper._checkpoint_path is None
-        assert wrapper._model is None
-
-    def test_wrapper_custom_checkpoint(self, tmp_path: Path) -> None:
-        checkpoint = tmp_path / "model.th"
-        wrapper = SVoiceWrapper(checkpoint_path=checkpoint)
-        assert wrapper._checkpoint_path == checkpoint
-
-    def test_separate_raises_separation_error(self, sample_audio: Path, output_dir: Path) -> None:
-        """Test that separation raises SeparationError on failure (model not available)."""
-        wrapper = SVoiceWrapper()
-        with pytest.raises(SeparationError):
-            wrapper.separate(sample_audio, output_dir)
-
-    @pytest.mark.slow
-    def test_separate_creates_output_files_if_model_available(
-        self, sample_audio: Path, output_dir: Path, tmp_path: Path
-    ) -> None:
-        """Test that separation creates lead and backing files if model works."""
-        # Create a fake checkpoint to test with (will still fail at model load)
-        checkpoint = tmp_path / "model.th"
-        checkpoint.touch()
-        wrapper = SVoiceWrapper(checkpoint_path=checkpoint)
-        # This will raise SeparationError since the checkpoint is not valid
-        with pytest.raises(SeparationError):
-            wrapper.separate(sample_audio, output_dir)
-
-
-class TestSeparateVocals:
-    def test_separate_vocals_raises_separation_error(
-        self, sample_audio: Path, tmp_path: Path
-    ) -> None:
-        """Test the convenience function raises SeparationError on failure."""
-        song_id = uuid4()
-        data_dir = tmp_path / "data"
-        data_dir.mkdir()
-
-        with pytest.raises(SeparationError):
-            separate_vocals(sample_audio, song_id, data_dir=data_dir)
 
 
 class TestMedleyVoxWrapper:

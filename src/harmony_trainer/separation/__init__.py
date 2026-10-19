@@ -9,20 +9,14 @@ from harmony_trainer.separation.medleyvox import (
     MedleyVoxWrapper,
     separate_vocals_medleyvox,
 )
-from harmony_trainer.separation.svoice import (
-    SeparationError,
-    SVoiceWrapper,
-    separate_vocals,
-)
+from harmony_trainer.separation.errors import SeparationError
 
 __all__ = [
     "BSRoFormerWrapper",
     "DemucsWrapper",
     "MedleyVoxWrapper",
     "SeparationError",
-    "SVoiceWrapper",
     "separate_audio",
-    "separate_vocals",
     "separate_vocals_bs_roformer",
     "separate_vocals_medleyvox",
 ]

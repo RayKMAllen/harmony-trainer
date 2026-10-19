@@ -13,7 +13,7 @@ from harmony_trainer.model_loaders.medleyvox import (
     load_medleyvox_model,
 )
 from harmony_trainer.models.medleyvox import MedleyVoxNet
-from harmony_trainer.separation.svoice import SeparationError
+from harmony_trainer.separation.errors import SeparationError
 
 
 class MedleyVoxWrapper:

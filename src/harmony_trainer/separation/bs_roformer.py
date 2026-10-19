@@ -16,7 +16,7 @@ from harmony_trainer.model_loaders.bs_roformer import (
     load_bs_roformer_model,
 )
 from harmony_trainer.models.bs_roformer import BSRoformerNet
-from harmony_trainer.separation.svoice import SeparationError
+from harmony_trainer.separation.errors import SeparationError
 
 logger = logging.getLogger(__name__)
 
